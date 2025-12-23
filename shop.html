@@ -1,105 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>THE CLOSET</title>
   <style>
     * { margin:0; padding:0; box-sizing:border-box; }
-    body { font-family: Arial, sans-serif; background: #f8f8f8; color:#333; }
+    body { font-family: Arial, sans-serif; background:#f8f8f8; color:#333; }
 
     /* Header */
-    header {
-      background: #000;
-      color:#fff;
-      padding:20px 0;
-      text-align:center;
-      position: sticky;
-      top:0;
-      z-index:1000;
-    }
+    header { background:#000; color:#fff; padding:20px 0; text-align:center; position: sticky; top:0; z-index:1000; }
     header h1 { letter-spacing:3px; font-size:2rem; }
     nav a { color:#fff; text-decoration:none; margin:0 15px; font-weight:bold; }
     nav a:hover { color:#ff4081; }
 
     /* Hero */
-    .hero {
-      width:100%;
-      height:100vh;
-      background: url('home.jpg') no-repeat center center / cover;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      position:relative;
-      text-align:center;
-      color:#fff;
-    }
+    .hero { width:100%; height:100vh; background:url('home.jpg') no-repeat center center / cover; display:flex; align-items:center; justify-content:center; position:relative; text-align:center; color:#fff; }
     .hero::after { content:''; position:absolute; inset:0; background: rgba(0,0,0,0.5); }
     .hero-content { position:relative; z-index:2; }
     .hero h2 { font-size:3rem; margin-bottom:20px; }
-    .hero button {
-      background:#ff4081; border:none; color:#fff; padding:15px 30px; font-size:1.2rem; cursor:pointer;
-    }
+    .hero button { background:#ff4081; border:none; color:#fff; padding:15px 30px; font-size:1.2rem; cursor:pointer; }
 
     /* Sections */
     section { padding:50px 20px; max-width:1200px; margin:auto; }
     section h2 { text-align:center; margin-bottom:30px; }
 
     /* Products */
-    .products {
-      display:grid;
-      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
-      gap:25px;
-    }
-    .product {
-      background:#fff;
-      border-radius:10px;
-      overflow:hidden;
-      box-shadow:0 4px 10px rgba(0,0,0,0.1);
-      transition: transform 0.3s, box-shadow 0.3s;
-    }
-    .product:hover {
-      transform: translateY(-5px);
-      box-shadow:0 8px 20px rgba(0,0,0,0.2);
-    }
+    .products { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:25px; }
+    .product { background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 4px 10px rgba(0,0,0,0.1); display:flex; flex-direction:column; align-items:center; padding-bottom:15px; }
     .product img { width:100%; height:300px; object-fit:contain; background:#fff; }
-    .product-content { padding:15px; text-align:center; }
+    .product-content { padding:15px; text-align:center; width:100%; display:flex; flex-direction:column; align-items:center; }
     .product-content h3 { margin-bottom:5px; }
-    .product-content p { font-size:0.95rem; color:#666; }
+    .product-content p { font-size:0.95rem; color:#666; margin-bottom:10px; }
     .price { color:#ff4081; font-weight:bold; margin:10px 0; }
-    .whatsapp-btn {
-      display:inline-block; margin-top:10px; background:#25D366; color:#fff;
-      padding:10px 20px; text-decoration:none; border-radius:5px; font-weight:bold;
-    }
+    .whatsapp-btn { display:inline-block; margin-top:10px; background:#25D366; color:#fff; padding:10px 20px; text-decoration:none; border-radius:5px; font-weight:bold; cursor:pointer; }
+
+    .size-input, .quantity-input { width:80%; margin:5px 0; padding:5px; border-radius:5px; border:1px solid #ccc; }
 
     /* Contact */
-    .contact {
-      text-align:center;
-      background:#fff;
-      padding:30px;
-      border-radius:10px;
-      box-shadow:0 4px 10px rgba(0,0,0,0.05);
-    }
-    .contact a {
-      display:block; margin-top:10px; text-decoration:none; color:#000; font-weight:bold;
-    }
+    .contact { text-align:center; background:#fff; padding:30px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.05); }
+    .contact a { display:block; margin-top:10px; text-decoration:none; color:#000; font-weight:bold; }
 
     /* Footer */
     footer { background:#000; color:#fff; text-align:center; padding:20px; margin-top:40px; }
 
-    /* Desktop & Mobile Adjustments */
-    @media (max-width: 1024px) {
-      .hero h2 { font-size:2.5rem; }
-    }
-    @media (max-width: 768px) {
+    /* Responsive */
+    @media(max-width:768px) {
       .hero h2 { font-size:2rem; }
-      .products { grid-template-columns: repeat(2, 1fr); gap:15px; }
-      .hero button { padding:10px 20px; font-size:1rem; }
-      .whatsapp-btn { padding:8px 15px; font-size:0.95rem; width:100%; box-sizing:border-box; }
+      .products { grid-template-columns:repeat(2,1fr); gap:15px; }
+      .whatsapp-btn { width:90%; text-align:center; }
+      .size-input, .quantity-input { width:90%; }
     }
-    @media (max-width: 480px) {
-      .products { grid-template-columns: 1fr; gap:15px; }
-      .hero h2 { font-size:1.6rem; }
+
+    @media(max-width:480px) {
+      .products { grid-template-columns:1fr; }
+      .whatsapp-btn, .size-input, .quantity-input { width:95%; }
     }
   </style>
 </head>
@@ -135,7 +90,9 @@
           <h3>UTOPIA TOP</h3>
           <p>M/L/XL</p>
           <div class="price">GHC 120</div>
-          <a class="whatsapp-btn" target="_blank" href="https://wa.me/233503674353?text=Hello THE CLOSET, I want to order UTOPIA TOP - GHC 120.">WhatsApp to Buy</a>
+          <input class="size-input" type="text" placeholder="Enter your size">
+          <input class="quantity-input" type="number" min="1" value="1" placeholder="Quantity">
+          <div class="whatsapp-btn" onclick="sendWhatsApp(this)">WhatsApp to Buy</div>
         </div>
       </div>
 
@@ -146,7 +103,9 @@
           <h3>ZARA TOP</h3>
           <p>L/XL</p>
           <div class="price">GHC 120</div>
-          <a class="whatsapp-btn" target="_blank" href="https://wa.me/233503674353?text=Hello THE CLOSET, I want to order ZARA TOP - GHC 120.">WhatsApp to Buy</a>
+          <input class="size-input" type="text" placeholder="Enter your size">
+          <input class="quantity-input" type="number" min="1" value="1" placeholder="Quantity">
+          <div class="whatsapp-btn" onclick="sendWhatsApp(this)">WhatsApp to Buy</div>
         </div>
       </div>
 
@@ -157,7 +116,9 @@
           <h3>HELLSTAR</h3>
           <p>L/XL</p>
           <div class="price">GHC 100</div>
-          <a class="whatsapp-btn" target="_blank" href="https://wa.me/233503674353?text=Hello THE CLOSET, I want to order HELLSTAR - GHC 100.">WhatsApp to Buy</a>
+          <input class="size-input" type="text" placeholder="Enter your size">
+          <input class="quantity-input" type="number" min="1" value="1" placeholder="Quantity">
+          <div class="whatsapp-btn" onclick="sendWhatsApp(this)">WhatsApp to Buy</div>
         </div>
       </div>
 
@@ -168,7 +129,9 @@
           <h3>MC LAREN TOP</h3>
           <p>L/XL</p>
           <div class="price">GHC 100</div>
-          <a class="whatsapp-btn" target="_blank" href="https://wa.me/233503674353?text=Hello THE CLOSET, I want to order MC LAREN TOP - GHC 100.">WhatsApp to Buy</a>
+          <input class="size-input" type="text" placeholder="Enter your size">
+          <input class="quantity-input" type="number" min="1" value="1" placeholder="Quantity">
+          <div class="whatsapp-btn" onclick="sendWhatsApp(this)">WhatsApp to Buy</div>
         </div>
       </div>
 
@@ -179,7 +142,9 @@
           <h3>JACK AND CACTUS TOP</h3>
           <p>XL</p>
           <div class="price">GHC 130</div>
-          <a class="whatsapp-btn" target="_blank" href="https://wa.me/233503674353?text=Hello THE CLOSET, I want to order JACK AND CACTUS TOP - GHC 130.">WhatsApp to Buy</a>
+          <input class="size-input" type="text" placeholder="Enter your size">
+          <input class="quantity-input" type="number" min="1" value="1" placeholder="Quantity">
+          <div class="whatsapp-btn" onclick="sendWhatsApp(this)">WhatsApp to Buy</div>
         </div>
       </div>
 
@@ -190,7 +155,9 @@
           <h3>HELLSTAR</h3>
           <p>XL</p>
           <div class="price">GHC 120</div>
-          <a class="whatsapp-btn" target="_blank" href="https://wa.me/233503674353?text=Hello THE CLOSET, I want to order HELLSTAR - GHC 120.">WhatsApp to Buy</a>
+          <input class="size-input" type="text" placeholder="Enter your size">
+          <input class="quantity-input" type="number" min="1" value="1" placeholder="Quantity">
+          <div class="whatsapp-btn" onclick="sendWhatsApp(this)">WhatsApp to Buy</div>
         </div>
       </div>
 
@@ -201,7 +168,9 @@
           <h3>UTOPIA</h3>
           <p>L/XL</p>
           <div class="price">GHC 130</div>
-          <a class="whatsapp-btn" target="_blank" href="https://wa.me/233503674353?text=Hello THE CLOSET, I want to order UTOPIA - GHC 130.">WhatsApp to Buy</a>
+          <input class="size-input" type="text" placeholder="Enter your size">
+          <input class="quantity-input" type="number" min="1" value="1" placeholder="Quantity">
+          <div class="whatsapp-btn" onclick="sendWhatsApp(this)">WhatsApp to Buy</div>
         </div>
       </div>
 
@@ -212,7 +181,9 @@
           <h3>UTOPIA</h3>
           <p>M/L</p>
           <div class="price">GHC 130</div>
-          <a class="whatsapp-btn" target="_blank" href="https://wa.me/233503674353?text=Hello THE CLOSET, I want to order UTOPIA - GHC 130.">WhatsApp to Buy</a>
+          <input class="size-input" type="text" placeholder="Enter your size">
+          <input class="quantity-input" type="number" min="1" value="1" placeholder="Quantity">
+          <div class="whatsapp-btn" onclick="sendWhatsApp(this)">WhatsApp to Buy</div>
         </div>
       </div>
 
@@ -223,7 +194,9 @@
           <h3>UTOPIA</h3>
           <p>M/L/XL</p>
           <div class="price">GHC 130</div>
-          <a class="whatsapp-btn" target="_blank" href="https://wa.me/233503674353?text=Hello THE CLOSET, I want to order UTOPIA - GHC 130.">WhatsApp to Buy</a>
+          <input class="size-input" type="text" placeholder="Enter your size">
+          <input class="quantity-input" type="number" min="1" value="1" placeholder="Quantity">
+          <div class="whatsapp-btn" onclick="sendWhatsApp(this)">WhatsApp to Buy</div>
         </div>
       </div>
 
@@ -234,7 +207,9 @@
           <h3>UTOPIA</h3>
           <p>L/XL</p>
           <div class="price">GHC 130</div>
-          <a class="whatsapp-btn" target="_blank" href="https://wa.me/233503674353?text=Hello THE CLOSET, I want to order UTOPIA - GHC 130.">WhatsApp to Buy</a>
+          <input class="size-input" type="text" placeholder="Enter your size">
+          <input class="quantity-input" type="number" min="1" value="1" placeholder="Quantity">
+          <div class="whatsapp-btn" onclick="sendWhatsApp(this)">WhatsApp to Buy</div>
         </div>
       </div>
 
@@ -245,7 +220,9 @@
           <h3>PALM ANGELS TOP</h3>
           <p>XL</p>
           <div class="price">GHC 120</div>
-          <a class="whatsapp-btn" target="_blank" href="https://wa.me/233503674353?text=Hello THE CLOSET, I want to order PALM ANGELS TOP - GHC 120.">WhatsApp to Buy</a>
+          <input class="size-input" type="text" placeholder="Enter your size">
+          <input class="quantity-input" type="number" min="1" value="1" placeholder="Quantity">
+          <div class="whatsapp-btn" onclick="sendWhatsApp(this)">WhatsApp to Buy</div>
         </div>
       </div>
 
@@ -256,7 +233,9 @@
           <h3>BILLONAIR BOYSCLUB TOP</h3>
           <p>L</p>
           <div class="price">GHC 120</div>
-          <a class="whatsapp-btn" target="_blank" href="https://wa.me/233503674353?text=Hello THE CLOSET, I want to order BILLONAIR BOYSCLUB TOP - GHC 120.">WhatsApp to Buy</a>
+          <input class="size-input" type="text" placeholder="Enter your size">
+          <input class="quantity-input" type="number" min="1" value="1" placeholder="Quantity">
+          <div class="whatsapp-btn" onclick="sendWhatsApp(this)">WhatsApp to Buy</div>
         </div>
       </div>
 
@@ -276,6 +255,19 @@
   <footer>
     <p>© 2025 THE CLOSET</p>
   </footer>
+
+  <script>
+    function sendWhatsApp(btn) {
+      const product = btn.closest('.product');
+      const name = product.querySelector('h3').innerText;
+      const price = product.querySelector('.price').innerText;
+      const size = product.querySelector('.size-input').value || 'No size specified';
+      const quantity = product.querySelector('.quantity-input').value || '1';
+      const message = `Hello THE CLOSET, I want to order ${quantity} x ${name} - ${price}, Size: ${size}`;
+      const phone = '233503674353';
+      window.open(`https://wa.me/${phone}?text=${encodeURIComponent(message)}`, '_blank');
+    }
+  </script>
 
 </body>
 </html>
