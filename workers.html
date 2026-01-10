@@ -10,7 +10,6 @@
   header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
   h1{margin:0}
   a{color:#000;font-weight:bold}
-
   .card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 5px 15px rgba(0,0,0,.08);margin-bottom:16px}
   label{font-weight:bold;margin-top:10px;display:block}
   input,button{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px;font-size:15px}
@@ -33,24 +32,23 @@
 </head>
 <body>
 
-<!-- ✅ PIN LOCK -->
+<!-- PIN -->
 <script>
-  (function () {
-    const PIN = "2005";
-    while (true) {
-      const entered = prompt("Mr Edric kindly input your PIN");
-      if (entered === null) { window.location.href = "./index.html"; return; }   // ✅ safer path
-      if (entered.trim() === PIN) break;
+  (function(){
+    const PIN="2005";
+    while(true){
+      const x = prompt("Mr Edric kindly input your PIN");
+      if(x===null){ location.href="./index.html"; return; }
+      if(x.trim()===PIN) break;
       alert("Wrong PIN. Try again.");
     }
   })();
 </script>
 
 <div class="wrap">
-
   <header>
     <h1>Workers – Manage Products</h1>
-    <a href="./index.html">← Back to Shop</a>  <!-- ✅ safer path -->
+    <a href="./index.html">← Back to Shop</a>
   </header>
 
   <div class="card">
@@ -59,11 +57,11 @@
       <div class="row">
         <div>
           <label>Product Name</label>
-          <input type="text" id="name" placeholder="e.g. NEW UTOPIA TOP" required>
+          <input type="text" id="name" required>
         </div>
         <div>
           <label>Price (GHC)</label>
-          <input type="number" id="price" placeholder="e.g. 120" min="1" required>
+          <input type="number" id="price" min="1" required>
         </div>
       </div>
 
@@ -71,7 +69,7 @@
       <input type="file" id="imageFile" accept="image/*" required>
 
       <label>Sizes (comma separated)</label>
-      <input type="text" id="sizes" placeholder="e.g. M,L,XL" required>
+      <input type="text" id="sizes" placeholder="M,L,XL" required>
 
       <div class="row">
         <div>
@@ -87,16 +85,12 @@
       </div>
 
       <button type="submit" id="submitBtn">Upload & Add Product</button>
-      <p class="tiny" style="margin-top:10px;">
-        Upload is compressed automatically for speed.
-      </p>
+      <p class="tiny" style="margin-top:10px;">Cloudinary is free (no card). Image URL is saved online.</p>
     </form>
   </div>
 
   <div class="card">
     <h2 style="margin:0 0 10px;">Current Products</h2>
-    <div class="tiny" style="margin-bottom:10px;">Confirm-style actions: Set Discount, Set Stock, Delete.</div>
-
     <div style="overflow:auto;">
       <table>
         <thead>
@@ -113,7 +107,6 @@
       </table>
     </div>
   </div>
-
 </div>
 
 <script type="module">
@@ -122,15 +115,12 @@
     getFirestore, collection, addDoc, serverTimestamp,
     query, orderBy, onSnapshot, doc, updateDoc, deleteDoc
   } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
-  import {
-    getStorage, ref, uploadBytes, getDownloadURL, deleteObject
-  } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
 
+  // Firebase (Firestore only)
   const firebaseConfig = {
     apiKey: "AIzaSyCcEqZ9Mga_JcVSAeQv1DKNLlo0QCItYI0",
     authDomain: "the-closet-ee4ef.firebaseapp.com",
     projectId: "the-closet-ee4ef",
-    storageBucket: "the-closet-ee4ef.firebasestorage.app",
     messagingSenderId: "386905202760",
     appId: "1:386905202760:web:efe9e882049ce7ad31f87d",
     measurementId: "G-RK2H1B1CVW"
@@ -138,100 +128,76 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
-  const storage = getStorage(app);
+
+  // Cloudinary
+  const CLOUD_NAME = "dwpwtanc8";
+  const UPLOAD_PRESET = "the closet";
 
   const form = document.getElementById("productForm");
   const submitBtn = document.getElementById("submitBtn");
   const list = document.getElementById("list");
 
-  // ✅ Compress + resize BEFORE upload (faster)
-  async function compressImage(file, maxW = 1200, quality = 0.7) {
-    const img = new Image();
-    const url = URL.createObjectURL(file);
+  async function uploadToCloudinary(file){
+    const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("upload_preset", UPLOAD_PRESET);
+    fd.append("folder", "the-closet");
 
-    await new Promise((resolve, reject) => {
-      img.onload = resolve;
-      img.onerror = reject;
-      img.src = url;
-    });
-
-    const scale = Math.min(1, maxW / img.width);
-    const w = Math.round(img.width * scale);
-    const h = Math.round(img.height * scale);
-
-    const canvas = document.createElement("canvas");
-    canvas.width = w;
-    canvas.height = h;
-    canvas.getContext("2d").drawImage(img, 0, 0, w, h);
-
-    URL.revokeObjectURL(url);
-
-    const blob = await new Promise(resolve =>
-      canvas.toBlob(resolve, "image/jpeg", quality)
-    );
-
-    return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
+    const res = await fetch(url, { method:"POST", body: fd });
+    if(!res.ok){
+      const t = await res.text();
+      throw new Error(t);
+    }
+    const data = await res.json();
+    return data.secure_url;
   }
 
-  // ✅ Add product
-  form.addEventListener("submit", async (e) => {
+  form.addEventListener("submit", async (e)=>{
     e.preventDefault();
 
     const name = document.getElementById("name").value.trim();
     const price = Number(document.getElementById("price").value);
-    const sizes = document.getElementById("sizes").value.split(",").map(s => s.trim()).filter(Boolean);
+    const sizes = document.getElementById("sizes").value.split(",").map(s=>s.trim()).filter(Boolean);
     const discountEnabled = document.getElementById("discountEnabled").checked;
     const outOfStock = document.getElementById("outOfStock").checked;
 
-    const original = document.getElementById("imageFile").files[0];
-    if (!original) { alert("Please upload an image."); return; }
+    const file = document.getElementById("imageFile").files[0];
+    if(!file){ alert("Upload an image."); return; }
 
     submitBtn.disabled = true;
-    submitBtn.textContent = "Compressing...";
+    submitBtn.textContent = "Uploading image...";
 
-    try {
-      const file = await compressImage(original, 1200, 0.7);
+    try{
+      const imageUrl = await uploadToCloudinary(file);
 
-      submitBtn.textContent = "Uploading...";
+      submitBtn.textContent = "Saving product...";
 
-      const safeName = name.replace(/[^\w\-]+/g, "_").toLowerCase();
-      const path = `products/${Date.now()}_${safeName}_${file.name}`;
-      const imgRef = ref(storage, path);
-
-      await uploadBytes(imgRef, file);
-      const imageUrl = await getDownloadURL(imgRef);
-
-      await addDoc(collection(db, "products"), {
-        name,
-        price,
-        sizes,
-        imageUrl,
-        imagePath: path,
-        discountEnabled,
-        outOfStock,
+      await addDoc(collection(db,"products"),{
+        name, price, sizes, imageUrl,
+        discountEnabled, outOfStock,
         createdAt: serverTimestamp()
       });
 
       alert("✅ Product added!");
       form.reset();
-    } catch (err) {
+    }catch(err){
       console.error(err);
-      alert("❌ Failed. Check Firebase rules / connection. Try a smaller image if needed.");
-    } finally {
+      alert("❌ Upload failed. Make sure Cloudinary preset is UNSIGNED.\n\nDetails: " + err.message);
+    }finally{
       submitBtn.disabled = false;
       submitBtn.textContent = "Upload & Add Product";
     }
   });
 
-  // ✅ Render list (live)
-  const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
-  onSnapshot(q, (snap) => {
-    if (snap.empty) {
+  // list & actions
+  const q = query(collection(db,"products"), orderBy("createdAt","desc"));
+  onSnapshot(q,(snap)=>{
+    if(snap.empty){
       list.innerHTML = `<tr><td colspan="6">No products yet.</td></tr>`;
       return;
     }
-
-    list.innerHTML = snap.docs.map(d => {
+    list.innerHTML = snap.docs.map(d=>{
       const p = d.data();
       const id = d.id;
 
@@ -239,10 +205,10 @@
       const stock = p.outOfStock ? `<span class="pill off">OUT</span>` : `<span class="pill on">IN</span>`;
 
       return `
-        <tr data-id="${id}" data-path="${p.imagePath || ""}">
+        <tr data-id="${id}">
           <td>${p.imageUrl ? `<img src="${p.imageUrl}" style="width:55px;height:55px;object-fit:cover;border-radius:8px;">` : ""}</td>
-          <td>${p.name || ""}</td>
-          <td>GHC ${p.price || ""}</td>
+          <td>${p.name||""}</td>
+          <td>GHC ${p.price||""}</td>
           <td>${disc}</td>
           <td>${stock}</td>
           <td class="actions">
@@ -255,47 +221,35 @@
     }).join("");
   });
 
-  // ✅ Confirm-style actions
-  list.addEventListener("click", async (e) => {
+  list.addEventListener("click", async (e)=>{
     const btn = e.target.closest("button[data-action]");
-    if (!btn) return;
+    if(!btn) return;
 
     const row = btn.closest("tr[data-id]");
     const id = row.dataset.id;
-    const imagePath = row.dataset.path;
-    const refDoc = doc(db, "products", id);
+    const refDoc = doc(db,"products",id);
 
-    try {
-      if (btn.dataset.action === "set-discount") {
+    try{
+      if(btn.dataset.action==="set-discount"){
         const setTo = confirm("Set DISCOUNT to ON?\nOK = ON, Cancel = OFF");
-        await updateDoc(refDoc, { discountEnabled: setTo });
+        await updateDoc(refDoc,{ discountEnabled: setTo });
         return;
       }
-
-      if (btn.dataset.action === "set-stock") {
+      if(btn.dataset.action==="set-stock"){
         const setTo = confirm("Mark as OUT OF STOCK?\nOK = OUT, Cancel = IN STOCK");
-        await updateDoc(refDoc, { outOfStock: setTo });
+        await updateDoc(refDoc,{ outOfStock: setTo });
         return;
       }
-
-      if (btn.dataset.action === "delete") {
-        if (!confirm("Delete this product?")) return;
-
+      if(btn.dataset.action==="delete"){
+        if(!confirm("Delete this product?")) return;
         await deleteDoc(refDoc);
-
-        if (imagePath) {
-          const imgRef = ref(storage, imagePath);
-          await deleteObject(imgRef).catch(() => {});
-        }
-
-        alert("✅ Deleted");
+        alert("✅ Deleted (image remains on Cloudinary).");
       }
-    } catch (err) {
+    }catch(err){
       console.error(err);
-      alert("❌ Action failed. Check Firebase rules/connection.");
+      alert("❌ Action failed: " + err.message);
     }
   });
 </script>
-
 </body>
 </html>
