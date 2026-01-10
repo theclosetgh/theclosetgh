@@ -16,6 +16,7 @@
   input,button{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px;font-size:15px}
   button{background:#000;color:#fff;cursor:pointer}
   button:hover{opacity:.92}
+  button:disabled{opacity:.65;cursor:not-allowed}
   .danger{background:#b00020}
   .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
   @media (max-width:800px){.row{grid-template-columns:1fr}}
@@ -26,7 +27,6 @@
   .pill{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:bold;font-size:.85rem}
   .pill.on{background:#e9fff1;color:#0b6b2a;border:1px solid #bfeccc}
   .pill.off{background:#fff4f4;color:#8a0f0f;border:1px solid #f0c0c0}
-
   .actions{display:flex;gap:8px;flex-wrap:wrap}
   .btnSmall{width:auto;padding:8px 10px}
 </style>
@@ -39,7 +39,7 @@
     const PIN = "2005";
     while (true) {
       const entered = prompt("Mr Edric kindly input your PIN");
-      if (entered === null) { window.location.href = "index.html"; return; }
+      if (entered === null) { window.location.href = "./index.html"; return; }   // ✅ safer path
       if (entered.trim() === PIN) break;
       alert("Wrong PIN. Try again.");
     }
@@ -50,7 +50,7 @@
 
   <header>
     <h1>Workers – Manage Products</h1>
-    <a href="index.html">← Back to Shop</a>
+    <a href="./index.html">← Back to Shop</a>  <!-- ✅ safer path -->
   </header>
 
   <div class="card">
@@ -87,13 +87,15 @@
       </div>
 
       <button type="submit" id="submitBtn">Upload & Add Product</button>
-      <p class="tiny" style="margin-top:10px;">Tip: smaller images upload faster.</p>
+      <p class="tiny" style="margin-top:10px;">
+        Upload is compressed automatically for speed.
+      </p>
     </form>
   </div>
 
   <div class="card">
     <h2 style="margin:0 0 10px;">Current Products</h2>
-    <div class="tiny" style="margin-bottom:10px;">Use Confirm popups to set ON/OFF or delete items.</div>
+    <div class="tiny" style="margin-bottom:10px;">Confirm-style actions: Set Discount, Set Stock, Delete.</div>
 
     <div style="overflow:auto;">
       <table>
@@ -124,7 +126,6 @@
     getStorage, ref, uploadBytes, getDownloadURL, deleteObject
   } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
 
-  // ===== YOUR FIREBASE CONFIG =====
   const firebaseConfig = {
     apiKey: "AIzaSyCcEqZ9Mga_JcVSAeQv1DKNLlo0QCItYI0",
     authDomain: "the-closet-ee4ef.firebaseapp.com",
@@ -134,7 +135,6 @@
     appId: "1:386905202760:web:efe9e882049ce7ad31f87d",
     measurementId: "G-RK2H1B1CVW"
   };
-  // ===============================
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
@@ -144,7 +144,36 @@
   const submitBtn = document.getElementById("submitBtn");
   const list = document.getElementById("list");
 
-  // ✅ Add product (upload image + save doc)
+  // ✅ Compress + resize BEFORE upload (faster)
+  async function compressImage(file, maxW = 1200, quality = 0.7) {
+    const img = new Image();
+    const url = URL.createObjectURL(file);
+
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = reject;
+      img.src = url;
+    });
+
+    const scale = Math.min(1, maxW / img.width);
+    const w = Math.round(img.width * scale);
+    const h = Math.round(img.height * scale);
+
+    const canvas = document.createElement("canvas");
+    canvas.width = w;
+    canvas.height = h;
+    canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+
+    URL.revokeObjectURL(url);
+
+    const blob = await new Promise(resolve =>
+      canvas.toBlob(resolve, "image/jpeg", quality)
+    );
+
+    return new File([blob], file.name.replace(/\.\w+$/, "") + ".jpg", { type: "image/jpeg" });
+  }
+
+  // ✅ Add product
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
 
@@ -154,13 +183,17 @@
     const discountEnabled = document.getElementById("discountEnabled").checked;
     const outOfStock = document.getElementById("outOfStock").checked;
 
-    const file = document.getElementById("imageFile").files[0];
-    if (!file) { alert("Please upload an image."); return; }
+    const original = document.getElementById("imageFile").files[0];
+    if (!original) { alert("Please upload an image."); return; }
 
     submitBtn.disabled = true;
-    submitBtn.textContent = "Uploading...";
+    submitBtn.textContent = "Compressing...";
 
     try {
+      const file = await compressImage(original, 1200, 0.7);
+
+      submitBtn.textContent = "Uploading...";
+
       const safeName = name.replace(/[^\w\-]+/g, "_").toLowerCase();
       const path = `products/${Date.now()}_${safeName}_${file.name}`;
       const imgRef = ref(storage, path);
@@ -183,7 +216,7 @@
       form.reset();
     } catch (err) {
       console.error(err);
-      alert("❌ Failed. Ensure Firestore + Storage are enabled and rules allow write.");
+      alert("❌ Failed. Check Firebase rules / connection. Try a smaller image if needed.");
     } finally {
       submitBtn.disabled = false;
       submitBtn.textContent = "Upload & Add Product";
@@ -230,7 +263,6 @@
     const row = btn.closest("tr[data-id]");
     const id = row.dataset.id;
     const imagePath = row.dataset.path;
-
     const refDoc = doc(db, "products", id);
 
     try {
@@ -251,7 +283,6 @@
 
         await deleteDoc(refDoc);
 
-        // delete image from Storage too
         if (imagePath) {
           const imgRef = ref(storage, imagePath);
           await deleteObject(imgRef).catch(() => {});
