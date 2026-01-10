@@ -1,287 +1,275 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>THE CLOSET</title>
+<meta charset="UTF-8">
+<title>THE CLOSET – Workers</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <style>
-  * { margin:0; padding:0; box-sizing:border-box; }
-  body { font-family: Arial, sans-serif; background:#f8f8f8; color:#333; }
+  body{font-family:Arial,sans-serif;background:#f5f5f5;padding:20px;color:#111}
+  .wrap{max-width:1000px;margin:0 auto}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  h1{margin:0}
+  a{color:#000;font-weight:bold}
 
-  /* Header */
-  header { background:#000; color:#fff; padding:20px 0; text-align:center; position:sticky; top:0; z-index:1000; }
-  header h1 { letter-spacing:3px; font-size:2rem; }
-  nav a { color:#fff; text-decoration:none; margin:0 15px; font-weight:bold; }
-  nav a:hover { color:#ff4081; }
+  .card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 5px 15px rgba(0,0,0,.08);margin-bottom:16px}
+  label{font-weight:bold;margin-top:10px;display:block}
+  input,button{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px;font-size:15px}
+  button{background:#000;color:#fff;cursor:pointer}
+  button:hover{opacity:.92}
+  .danger{background:#b00020}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:800px){.row{grid-template-columns:1fr}}
 
-  /* Hero */
-  .hero { width:100%; height:100vh; background:url('home.jpg') no-repeat center center / cover; display:flex; align-items:center; justify-content:center; position:relative; text-align:center; color:#fff; }
-  .hero::after { content:''; position:absolute; inset:0; background: rgba(0,0,0,0.5); }
-  .hero-content { position:relative; z-index:2; }
-  .hero h2 { font-size:3rem; margin-bottom:20px; }
-  .hero button { background:#ff4081; border:none; color:#fff; padding:15px 30px; font-size:1.2rem; cursor:pointer; }
-
-  /* Sections */
-  section { padding:50px 20px; max-width:1200px; margin:auto; }
-  section h2 { text-align:center; margin-bottom:30px; }
-
-  /* Products */
-  .products { display:grid; grid-template-columns:repeat(auto-fit,minmax(250px,1fr)); gap:25px; }
-  .product { background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 4px 10px rgba(0,0,0,0.1); padding-bottom:15px; transition: transform 0.3s; }
-  .product:hover { transform: translateY(-5px); }
-  .product img { width:100%; height:300px; object-fit:contain; background:#fff; }
-  .product-content { padding:15px; text-align:center; }
-  .product-content h3 { margin-bottom:5px; }
-  .product-content p { font-size:0.95rem; color:#666; }
-  .price { color:#ff4081; font-weight:bold; margin:10px 0; }
-  .whatsapp-btn { display:inline-block; margin-top:10px; background:#25D366; color:#fff; padding:10px 20px; text-decoration:none; border-radius:5px; font-weight:bold; transition: background 0.3s; }
-  .whatsapp-btn:hover { background:#128C7E; }
-
-  label { display:block; margin-top:10px; font-weight:bold; }
-  select, input[type="number"] { margin-top:5px; padding:5px; width:80%; }
-
-  /* Contact */
-  .contact { text-align:center; background:#fff; padding:30px; border-radius:10px; box-shadow:0 4px 10px rgba(0,0,0,0.05); }
-  .contact a { display:block; margin-top:10px; text-decoration:none; color:#000; font-weight:bold; }
-
-  /* Footer */
-  footer { background:#000; color:#fff; text-align:center; padding:20px; margin-top:40px; }
-
-  /* Responsive */
-  @media (max-width:768px){ 
-    .hero h2 { font-size:2rem; } 
-    .products { grid-template-columns:repeat(2,1fr); } 
-  }
-  @media (max-width:480px){ .products { grid-template-columns:1fr; } }
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px;border-bottom:1px solid #eee;text-align:left;vertical-align:middle}
+  .tiny{font-size:.9rem;color:#666}
+  .pill{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:bold;font-size:.85rem}
+  .pill.on{background:#e9fff1;color:#0b6b2a;border:1px solid #bfeccc}
+  .pill.off{background:#fff4f4;color:#8a0f0f;border:1px solid #f0c0c0}
 </style>
 </head>
 <body>
 
-<header>
-  <h1>THE CLOSET</h1>
-  <nav>
-    <a href="#home">HOME</a>
-    <a href="#shop">SHOP</a>
-    <a href="#contact">CONTACT</a>
-  </nav>
-</header>
-
-<section id="home" class="hero">
-  <div class="hero-content">
-    <h2>Welcome to THE CLOSET</h2>
-    <button onclick="document.getElementById('shop').scrollIntoView({behavior:'smooth'})">Shop Now</button>
-  </div>
-</section>
-
-<section id="shop">
-  <h2>Available Dresses</h2>
-  <div class="products">
-
-    <!-- Template for each dress -->
-    <div class="product">
-      <img src="dress1.jpg" alt="UTOPIA TOP">
-      <div class="product-content">
-        <h3>UTOPIA TOP</h3>
-        <p>M/L/XL</p>
-        <div class="price">GHC 120</div>
-        <label>Size:</label>
-        <select class="size"><option value="M">M</option><option value="L">L</option><option value="XL">XL</option></select>
-        <label>Quantity:</label>
-        <input type="number" class="quantity" min="1" max="10" value="1">
-        <a class="whatsapp-btn" target="_blank" href="#">WhatsApp to Buy</a>
-      </div>
-    </div>
-
-    <!-- Repeat for all 12 dresses, adjust names, images, sizes, and prices -->
-    <div class="product">
-      <img src="dress2.jpg" alt="ZARA TOP">
-      <div class="product-content">
-        <h3>ZARA TOP</h3>
-        <p>L/XL</p>
-        <div class="price">GHC 120</div>
-        <label>Size:</label>
-        <select class="size"><option value="L">L</option><option value="XL">XL</option></select>
-        <label>Quantity:</label>
-        <input type="number" class="quantity" min="1" max="10" value="1">
-        <a class="whatsapp-btn" target="_blank" href="#">WhatsApp to Buy</a>
-      </div>
-    </div>
-
-    <div class="product">
-      <img src="dress3.jpg" alt="HELLSTAR">
-      <div class="product-content">
-        <h3>HELLSTAR</h3>
-        <p>L/XL</p>
-        <div class="price">GHC 100</div>
-        <label>Size:</label>
-        <select class="size"><option value="L">L</option><option value="XL">XL</option></select>
-        <label>Quantity:</label>
-        <input type="number" class="quantity" min="1" max="10" value="1">
-        <a class="whatsapp-btn" target="_blank" href="#">WhatsApp to Buy</a>
-      </div>
-    </div>
-
-    <div class="product">
-      <img src="dress4.jpg" alt="MC LAREN TOP">
-      <div class="product-content">
-        <h3>MC LAREN TOP</h3>
-        <p>L/XL</p>
-        <div class="price">GHC 100</div>
-        <label>Size:</label>
-        <select class="size"><option value="L">L</option><option value="XL">XL</option></select>
-        <label>Quantity:</label>
-        <input type="number" class="quantity" min="1" max="10" value="1">
-        <a class="whatsapp-btn" target="_blank" href="#">WhatsApp to Buy</a>
-      </div>
-    </div>
-
-    <div class="product">
-      <img src="dress5.jpg" alt="JACK AND CACTUS TOP">
-      <div class="product-content">
-        <h3>JACK AND CACTUS TOP</h3>
-        <p>XL</p>
-        <div class="price">GHC 130</div>
-        <label>Size:</label>
-        <select class="size"><option value="XL">XL</option></select>
-        <label>Quantity:</label>
-        <input type="number" class="quantity" min="1" max="10" value="1">
-        <a class="whatsapp-btn" target="_blank" href="#">WhatsApp to Buy</a>
-      </div>
-    </div>
-
-    <div class="product">
-      <img src="dress6.jpg" alt="HELLSTAR">
-      <div class="product-content">
-        <h3>HELLSTAR</h3>
-        <p>XL</p>
-        <div class="price">GHC 120</div>
-        <label>Size:</label>
-        <select class="size"><option value="XL">XL</option></select>
-        <label>Quantity:</label>
-        <input type="number" class="quantity" min="1" max="10" value="1">
-        <a class="whatsapp-btn" target="_blank" href="#">WhatsApp to Buy</a>
-      </div>
-    </div>
-
-    <div class="product">
-      <img src="dress7.jpg" alt="UTOPIA">
-      <div class="product-content">
-        <h3>UTOPIA</h3>
-        <p>L/XL</p>
-        <div class="price">GHC 130</div>
-        <label>Size:</label>
-        <select class="size"><option value="L">L</option><option value="XL">XL</option></select>
-        <label>Quantity:</label>
-        <input type="number" class="quantity" min="1" max="10" value="1">
-        <a class="whatsapp-btn" target="_blank" href="#">WhatsApp to Buy</a>
-      </div>
-    </div>
-
-    <div class="product">
-      <img src="dress8.jpg" alt="UTOPIA">
-      <div class="product-content">
-        <h3>UTOPIA</h3>
-        <p>M/L</p>
-        <div class="price">GHC 130</div>
-        <label>Size:</label>
-        <select class="size"><option value="M">M</option><option value="L">L</option></select>
-        <label>Quantity:</label>
-        <input type="number" class="quantity" min="1" max="10" value="1">
-        <a class="whatsapp-btn" target="_blank" href="#">WhatsApp to Buy</a>
-      </div>
-    </div>
-
-    <div class="product">
-      <img src="dress9.jpg" alt="UTOPIA">
-      <div class="product-content">
-        <h3>UTOPIA</h3>
-        <p>M/L/XL</p>
-        <div class="price">GHC 130</div>
-        <label>Size:</label>
-        <select class="size"><option value="M">M</option><option value="L">L</option><option value="XL">XL</option></select>
-        <label>Quantity:</label>
-        <input type="number" class="quantity" min="1" max="10" value="1">
-        <a class="whatsapp-btn" target="_blank" href="#">WhatsApp to Buy</a>
-      </div>
-    </div>
-
-    <div class="product">
-      <img src="dress10.jpg" alt="UTOPIA">
-      <div class="product-content">
-        <h3>UTOPIA</h3>
-        <p>L/XL</p>
-        <div class="price">GHC 130</div>
-        <label>Size:</label>
-        <select class="size"><option value="L">L</option><option value="XL">XL</option></select>
-        <label>Quantity:</label>
-        <input type="number" class="quantity" min="1" max="10" value="1">
-        <a class="whatsapp-btn" target="_blank" href="#">WhatsApp to Buy</a>
-      </div>
-    </div>
-
-    <div class="product">
-      <img src="dress11.jpg" alt="PALM ANGELS TOP">
-      <div class="product-content">
-        <h3>PALM ANGELS TOP</h3>
-        <p>XL</p>
-        <div class="price">GHC 120</div>
-        <label>Size:</label>
-        <select class="size"><option value="XL">XL</option></select>
-        <label>Quantity:</label>
-        <input type="number" class="quantity" min="1" max="10" value="1">
-        <a class="whatsapp-btn" target="_blank" href="#">WhatsApp to Buy</a>
-      </div>
-    </div>
-
-    <div class="product">
-      <img src="dress12.jpg" alt="BILLONAIR BOYSCLUB TOP">
-      <div class="product-content">
-        <h3>BILLONAIR BOYSCLUB TOP</h3>
-        <p>L</p>
-        <div class="price">GHC 120</div>
-        <label>Size:</label>
-        <select class="size"><option value="L">L</option></select>
-        <label>Quantity:</label>
-        <input type="number" class="quantity" min="1" max="10" value="1">
-        <a class="whatsapp-btn" target="_blank" href="#">WhatsApp to Buy</a>
-      </div>
-    </div>
-
-  </div>
-</section>
-
-<section id="contact">
-  <h2>Contact</h2>
-  <div class="contact">
-    <a href="https://wa.me/233503674353" target="_blank">📱 WhatsApp: 0503674353</a>
-    <a href="https://www.tiktok.com/@the.closetgh" target="_blank">🎵 TikTok: @the.closetgh</a>
-  </div>
-</section>
-
-<footer>
-  <p>© 2025 THE CLOSET</p>
-</footer>
-
+<!-- ✅ PIN LOCK -->
 <script>
-  // Dynamic WhatsApp link for size and quantity
-  const products = document.querySelectorAll('.product');
-  products.forEach(product => {
-    const sizeSelect = product.querySelector('.size');
-    const quantityInput = product.querySelector('.quantity');
-    const whatsappBtn = product.querySelector('.whatsapp-btn');
-    const productName = product.querySelector('h3').innerText;
-    const price = product.querySelector('.price').innerText;
+  (function () {
+    const PIN = "2005";
+    while (true) {
+      const entered = prompt("Mr Edric kindly input your PIN");
+      if (entered === null) { window.location.href = "index.html"; return; }
+      if (entered.trim() === PIN) break;
+      alert("Wrong PIN. Try again.");
+    }
+  })();
+</script>
 
-    function updateLink() {
-      const size = sizeSelect.value;
-      const qty = quantityInput.value;
-      const msg = `Hello THE CLOSET, I want to order ${productName} - Size: ${size}, Quantity: ${qty}, Price: ${price}.`;
-      whatsappBtn.href = `https://wa.me/233503674353?text=${encodeURIComponent(msg)}`;
+<div class="wrap">
+
+  <header>
+    <h1>Workers – Manage Products</h1>
+    <a href="index.html">← Back to Shop</a>
+  </header>
+
+  <div class="card">
+    <h2 style="margin:0 0 10px;">Add New Product</h2>
+    <form id="productForm">
+      <div class="row">
+        <div>
+          <label>Product Name</label>
+          <input type="text" id="name" placeholder="e.g. NEW UTOPIA TOP" required>
+        </div>
+        <div>
+          <label>Price (GHC)</label>
+          <input type="number" id="price" placeholder="e.g. 120" min="1" required>
+        </div>
+      </div>
+
+      <label>Upload Product Image</label>
+      <input type="file" id="imageFile" accept="image/*" required>
+
+      <label>Sizes (comma separated)</label>
+      <input type="text" id="sizes" placeholder="e.g. M,L,XL" required>
+
+      <div class="row">
+        <div>
+          <label>Discount</label>
+          <div class="tiny">Turn discount ON/OFF for this product</div>
+          <input type="checkbox" id="discountEnabled" style="width:auto; transform:scale(1.2); margin-top:10px;">
+          <span class="tiny"> Enable discount</span>
+        </div>
+        <div>
+          <label>Stock</label>
+          <div class="tiny">Mark as Out of Stock if not available</div>
+          <input type="checkbox" id="outOfStock" style="width:auto; transform:scale(1.2); margin-top:10px;">
+          <span class="tiny"> Out of stock</span>
+        </div>
+      </div>
+
+      <button type="submit" id="submitBtn">Upload & Add Product</button>
+      <p class="tiny" style="margin-top:10px;">Tip: use smaller images so uploads are fast.</p>
+    </form>
+  </div>
+
+  <div class="card">
+    <h2 style="margin:0 0 10px;">Current Products</h2>
+    <div class="tiny" style="margin-bottom:10px;">You can toggle stock/discount or delete products.</div>
+
+    <div style="overflow:auto;">
+      <table>
+        <thead>
+          <tr>
+            <th>Preview</th>
+            <th>Name</th>
+            <th>Price</th>
+            <th>Discount</th>
+            <th>Stock</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="list"></tbody>
+      </table>
+    </div>
+  </div>
+
+</div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
+  import { getFirestore, collection, addDoc, serverTimestamp, query, orderBy, onSnapshot, doc, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+  import { getStorage, ref, uploadBytes, getDownloadURL, deleteObject } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-storage.js";
+
+  // ===== YOUR FIREBASE CONFIG =====
+  const firebaseConfig = {
+    apiKey: "AIzaSyCcEqZ9Mga_JcVSAeQv1DKNLlo0QCItYI0",
+    authDomain: "the-closet-ee4ef.firebaseapp.com",
+    projectId: "the-closet-ee4ef",
+    storageBucket: "the-closet-ee4ef.firebasestorage.app",
+    messagingSenderId: "386905202760",
+    appId: "1:386905202760:web:efe9e882049ce7ad31f87d",
+    measurementId: "G-RK2H1B1CVW"
+  };
+  // ===============================
+
+  const app = initializeApp(firebaseConfig);
+  const db = getFirestore(app);
+  const storage = getStorage(app);
+
+  const form = document.getElementById("productForm");
+  const submitBtn = document.getElementById("submitBtn");
+  const list = document.getElementById("list");
+
+  // Add product (upload image + save doc)
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const name = document.getElementById("name").value.trim();
+    const price = Number(document.getElementById("price").value);
+    const sizes = document.getElementById("sizes").value.split(",").map(s => s.trim()).filter(Boolean);
+    const discountEnabled = document.getElementById("discountEnabled").checked;
+    const outOfStock = document.getElementById("outOfStock").checked;
+
+    const file = document.getElementById("imageFile").files[0];
+    if (!file){ alert("Please upload an image."); return; }
+
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Uploading...";
+
+    try {
+      const safeName = name.replace(/[^\w\-]+/g, "_").toLowerCase();
+      const path = `products/${Date.now()}_${safeName}_${file.name}`;
+      const imgRef = ref(storage, path);
+
+      await uploadBytes(imgRef, file);
+      const imageUrl = await getDownloadURL(imgRef);
+
+      await addDoc(collection(db, "products"), {
+        name,
+        price,
+        sizes,
+        imageUrl,
+        imagePath: path,
+        discountEnabled,
+        outOfStock,
+        createdAt: serverTimestamp()
+      });
+
+      alert("✅ Product added!");
+      form.reset();
+    } catch (err) {
+      console.error(err);
+      alert("❌ Failed. Make sure Firestore + Storage are enabled and rules allow write.");
+    } finally {
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Upload & Add Product";
+    }
+  });
+
+  // Render products list with live updates
+  const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
+  onSnapshot(q, (snap) => {
+    if (snap.empty){
+      list.innerHTML = `<tr><td colspan="6">No products yet.</td></tr>`;
+      return;
     }
 
-    sizeSelect.addEventListener('change', updateLink);
-    quantityInput.addEventListener('change', updateLink);
-    updateLink();
+    list.innerHTML = snap.docs.map(d => {
+      const p = d.data();
+      const id = d.id;
+
+      const discPill = p.discountEnabled
+        ? `<span class="pill on">ON</span>`
+        : `<span class="pill off">OFF</span>`;
+
+      const stockPill = p.outOfStock
+        ? `<span class="pill off">OUT</span>`
+        : `<span class="pill on">IN</span>`;
+
+      return `
+        <tr data-id="${id}" data-path="${p.imagePath || ""}">
+          <td>${p.imageUrl ? `<img src="${p.imageUrl}" style="width:55px;height:55px;object-fit:cover;border-radius:8px;">` : ""}</td>
+          <td>${p.name || ""}</td>
+          <td>GHC ${p.price || ""}</td>
+          <td>
+            ${discPill}<br>
+            <button type="button" data-action="toggle-discount" style="margin-top:8px;width:auto;padding:8px 10px;">Toggle</button>
+          </td>
+          <td>
+            ${stockPill}<br>
+            <button type="button" data-action="toggle-stock" style="margin-top:8px;width:auto;padding:8px 10px;">Toggle</button>
+          </td>
+          <td>
+            <button type="button" data-action="delete" class="danger" style="width:auto;padding:8px 10px;">Delete</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  });
+
+  // Handle actions: toggle discount, toggle stock, delete
+  list.addEventListener("click", async (e) => {
+    const btn = e.target.closest("button[data-action]");
+    if (!btn) return;
+
+    const row = btn.closest("tr[data-id]");
+    const id = row.dataset.id;
+    const imagePath = row.dataset.path;
+
+    const refDoc = doc(db, "products", id);
+
+    try {
+      if (btn.dataset.action === "toggle-discount") {
+        // Read current state from the row pills? Better: ask Firestore to flip using a quick approach:
+        // We'll fetch the current row HTML states reliably by checking text (simple & works).
+        const currentlyOn = row.innerText.includes("Discount") ? false : false; // not reliable
+        // So instead: just do a small update based on button label with a prompt.
+        // Cleaner: ask user what to set:
+        const setTo = confirm("Set DISCOUNT to ON?\nOK = ON, Cancel = OFF");
+        await updateDoc(refDoc, { discountEnabled: setTo });
+      }
+
+      if (btn.dataset.action === "toggle-stock") {
+        const setTo = confirm("Mark as OUT OF STOCK?\nOK = OUT, Cancel = IN STOCK");
+        await updateDoc(refDoc, { outOfStock: setTo });
+      }
+
+      if (btn.dataset.action === "delete") {
+        if (!confirm("Delete this product?")) return;
+
+        // delete firestore doc
+        await deleteDoc(refDoc);
+
+        // delete image from storage (if path exists)
+        if (imagePath) {
+          const imgRef = ref(storage, imagePath);
+          await deleteObject(imgRef).catch(() => {});
+        }
+
+        alert("✅ Deleted");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("❌ Action failed. Check Firebase rules / connection.");
+    }
   });
 </script>
 
