@@ -85,7 +85,7 @@
       </div>
 
       <button type="submit" id="submitBtn">Upload & Add Product</button>
-      <p class="tiny" style="margin-top:10px;">Cloudinary is free (no card). Image URL is saved online.</p>
+      <p class="tiny" style="margin-top:10px;">If upload fails: preset must be UNSIGNED and named <b>the_closet</b>.</p>
     </form>
   </div>
 
@@ -129,9 +129,9 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  // Cloudinary
+  // Cloudinary (FIXED preset name)
   const CLOUD_NAME = "dwpwtanc8";
-  const UPLOAD_PRESET = "the closet";
+  const UPLOAD_PRESET = "the_closet";
 
   const form = document.getElementById("productForm");
   const submitBtn = document.getElementById("submitBtn");
@@ -145,11 +145,11 @@
     fd.append("folder", "the-closet");
 
     const res = await fetch(url, { method:"POST", body: fd });
-    if(!res.ok){
-      const t = await res.text();
-      throw new Error(t);
-    }
     const data = await res.json();
+
+    if (!res.ok) {
+      throw new Error(data.error?.message || "Cloudinary upload failed");
+    }
     return data.secure_url;
   }
 
@@ -183,7 +183,7 @@
       form.reset();
     }catch(err){
       console.error(err);
-      alert("❌ Upload failed. Make sure Cloudinary preset is UNSIGNED.\n\nDetails: " + err.message);
+      alert("❌ Upload failed.\n\n" + err.message + "\n\nFix: Cloudinary preset must be UNSIGNED and named the_closet.");
     }finally{
       submitBtn.disabled = false;
       submitBtn.textContent = "Upload & Add Product";
@@ -236,20 +236,4 @@
         return;
       }
       if(btn.dataset.action==="set-stock"){
-        const setTo = confirm("Mark as OUT OF STOCK?\nOK = OUT, Cancel = IN STOCK");
-        await updateDoc(refDoc,{ outOfStock: setTo });
-        return;
-      }
-      if(btn.dataset.action==="delete"){
-        if(!confirm("Delete this product?")) return;
-        await deleteDoc(refDoc);
-        alert("✅ Deleted (image remains on Cloudinary).");
-      }
-    }catch(err){
-      console.error(err);
-      alert("❌ Action failed: " + err.message);
-    }
-  });
-</script>
-</body>
-</html>
+        const setTo = confirm("Mark as OUT OF STOCK?\nOK = OUT, Cancel =
