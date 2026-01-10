@@ -4,7 +4,6 @@
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>THE CLOSET</title>
-
 <style>
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:Arial,sans-serif;background:#f8f8f8;color:#333}
@@ -33,12 +32,7 @@
   .product-content h3{margin-bottom:5px}
   .product-content p{font-size:.95rem;color:#666}
 
-  .badge-top{
-    position:absolute;top:12px;left:12px;
-    background:#111;color:#fff;font-weight:bold;
-    padding:6px 10px;border-radius:999px;font-size:.85rem;
-    box-shadow:0 6px 18px rgba(0,0,0,.15);
-  }
+  .badge-top{position:absolute;top:12px;left:12px;background:#111;color:#fff;font-weight:bold;padding:6px 10px;border-radius:999px;font-size:.85rem}
   .badge-top.out{background:#b00020}
 
   .price{margin:10px 0;display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap}
@@ -48,9 +42,7 @@
 
   .whatsapp-btn{display:inline-block;margin-top:10px;background:#25D366;color:#fff;padding:10px 20px;text-decoration:none;border-radius:8px;font-weight:bold;transition:background .3s}
   .whatsapp-btn:hover{background:#128C7E}
-  .whatsapp-btn.disabled{
-    background:#cfcfcf;color:#666;pointer-events:none;cursor:not-allowed;
-  }
+  .whatsapp-btn.disabled{background:#cfcfcf;color:#666;pointer-events:none;cursor:not-allowed}
 
   label{display:block;margin-top:10px;font-weight:bold}
   select,input[type="number"]{margin-top:5px;padding:8px;width:85%;border:1px solid #ddd;border-radius:8px}
@@ -79,7 +71,7 @@
     <a href="#home">HOME</a>
     <a href="#shop">SHOP</a>
     <a href="#contact">CONTACT</a>
-    <a href="workers.html">WORKERS</a>
+    <a href="./workers.html">WORKERS</a>
   </nav>
 </header>
 
@@ -92,7 +84,7 @@
 
 <section id="shop">
   <h2>Available Dresses</h2>
-  <p class="hint">All items are loaded online — everyone sees the same stock.</p>
+  <p class="hint">All items are online — everyone sees the same stock.</p>
   <div class="products" id="productsGrid"></div>
 </section>
 
@@ -105,86 +97,68 @@
 </section>
 
 <footer>
-  <p>© 2026 THE CLOSET • <a href="workers.html">Workers</a></p>
+  <p>© 2026 THE CLOSET • <a href="./workers.html">Workers</a></p>
 </footer>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
   import { getFirestore, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-  // ===== YOUR FIREBASE CONFIG =====
+  // Firebase (Firestore only)
   const firebaseConfig = {
     apiKey: "AIzaSyCcEqZ9Mga_JcVSAeQv1DKNLlo0QCItYI0",
     authDomain: "the-closet-ee4ef.firebaseapp.com",
     projectId: "the-closet-ee4ef",
-    storageBucket: "the-closet-ee4ef.firebasestorage.app",
     messagingSenderId: "386905202760",
     appId: "1:386905202760:web:efe9e882049ce7ad31f87d",
     measurementId: "G-RK2H1B1CVW"
   };
-  // ===============================
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
   const WHATSAPP_NUMBER = "233503674353";
-  const GLOBAL_DISCOUNT_PERCENT = 15; // used ONLY when a product's discountEnabled = true
-
-  function money(n){
-    const v = Number(n);
-    if (Number.isNaN(v)) return "";
-    return `GHC ${Math.round(v)}`;
-  }
-  function discounted(price){
-    const p = Number(price);
-    return p * (100 - GLOBAL_DISCOUNT_PERCENT) / 100;
-  }
+  const DISCOUNT_PERCENT = 15;
 
   const grid = document.getElementById("productsGrid");
 
+  function money(n){ return `GHC ${Math.round(Number(n||0))}`; }
+  function discounted(p){ return Number(p) * (100 - DISCOUNT_PERCENT) / 100; }
+
   function cardHTML(p){
-    const sizes = Array.isArray(p.sizes) && p.sizes.length ? p.sizes : ["M","L","XL"];
-    const basePrice = Number(p.price || 0);
+    const sizes = Array.isArray(p.sizes)&&p.sizes.length ? p.sizes : ["M","L","XL"];
+    const base = Number(p.price||0);
+    const out = !!p.outOfStock;
+    const discOn = !!p.discountEnabled;
+    const final = discOn ? discounted(base) : base;
 
-    const outOfStock = !!p.outOfStock;
-    const discountEnabled = !!p.discountEnabled;
-
-    const finalPrice = discountEnabled ? discounted(basePrice) : basePrice;
-
-    const options = sizes.map(s => `<option value="${s}">${s}</option>`).join("");
-
-    let priceHTML = `<span class="new">${money(basePrice)}</span>`;
-    if (discountEnabled){
-      priceHTML = `
-        <span class="old">${money(basePrice)}</span>
-        <span class="new">${money(finalPrice)}</span>
-        <span class="disc">${GLOBAL_DISCOUNT_PERCENT}% OFF</span>
-      `;
-    }
-
-    const topBadge = outOfStock
+    const badge = out
       ? `<div class="badge-top out">OUT OF STOCK</div>`
-      : (discountEnabled ? `<div class="badge-top">DISCOUNT</div>` : ``);
+      : (discOn ? `<div class="badge-top">DISCOUNT</div>` : "");
 
-    const imgSrc = p.imageUrl || "home.jpg";
+    const priceHTML = discOn
+      ? `<span class="old">${money(base)}</span><span class="new">${money(final)}</span><span class="disc">${DISCOUNT_PERCENT}% OFF</span>`
+      : `<span class="new">${money(base)}</span>`;
+
+    const opts = sizes.map(s=>`<option value="${s}">${s}</option>`).join("");
 
     return `
-      <div class="product" data-price="${basePrice}" data-out="${outOfStock ? "1":"0"}" data-discount="${discountEnabled ? "1":"0"}">
-        ${topBadge}
-        <img src="${imgSrc}" alt="${p.name || "Product"}">
+      <div class="product" data-price="${base}" data-out="${out?1:0}" data-disc="${discOn?1:0}">
+        ${badge}
+        <img src="${p.imageUrl || 'home.jpg'}" alt="${p.name || 'Product'}">
         <div class="product-content">
           <h3>${p.name || "New Item"}</h3>
           <p>${sizes.join("/")}</p>
           <div class="price">${priceHTML}</div>
 
           <label>Size:</label>
-          <select class="size" ${outOfStock ? "disabled":""}>${options}</select>
+          <select class="size" ${out?"disabled":""}>${opts}</select>
 
           <label>Quantity:</label>
-          <input type="number" class="quantity" min="1" max="10" value="1" ${outOfStock ? "disabled":""}>
+          <input type="number" class="quantity" min="1" max="10" value="1" ${out?"disabled":""}>
 
-          <a class="whatsapp-btn ${outOfStock ? "disabled":""}" target="_blank" href="#">
-            ${outOfStock ? "Out of Stock" : "WhatsApp to Buy"}
+          <a class="whatsapp-btn ${out?"disabled":""}" target="_blank" href="#">
+            ${out ? "Out of Stock" : "WhatsApp to Buy"}
           </a>
         </div>
       </div>
@@ -192,52 +166,44 @@
   }
 
   function wireWhatsApp(){
-    document.querySelectorAll(".product").forEach(product => {
-      const out = product.dataset.out === "1";
-      if (out) return; // no WhatsApp link for out-of-stock
+    document.querySelectorAll(".product").forEach(card=>{
+      if(card.dataset.out==="1") return;
 
-      const discountOn = product.dataset.discount === "1";
-      const basePrice = Number(product.dataset.price || 0);
-      const finalPrice = discountOn ? discounted(basePrice) : basePrice;
+      const base = Number(card.dataset.price||0);
+      const discOn = card.dataset.disc==="1";
+      const final = discOn ? discounted(base) : base;
 
-      const sizeSelect = product.querySelector(".size");
-      const qtyInput = product.querySelector(".quantity");
-      const btn = product.querySelector(".whatsapp-btn");
-      const name = product.querySelector("h3")?.innerText?.trim() || "Item";
+      const name = card.querySelector("h3").innerText.trim();
+      const size = card.querySelector(".size");
+      const qty = card.querySelector(".quantity");
+      const btn = card.querySelector(".whatsapp-btn");
 
       function update(){
-        const size = sizeSelect?.value || "";
-        const qty = qtyInput?.value || 1;
-
         const msg =
 `Hello THE CLOSET,
 I want to order: ${name}
-Size: ${size}
-Quantity: ${qty}
-Price: ${money(finalPrice)}${discountOn ? ` (${GLOBAL_DISCOUNT_PERCENT}% OFF)` : ""}
+Size: ${size.value}
+Quantity: ${qty.value}
+Price: ${money(final)}${discOn ? ` (${DISCOUNT_PERCENT}% OFF)` : ""}
 
 Please confirm availability.`;
-
         btn.href = `https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`;
       }
-
-      sizeSelect?.addEventListener("change", update);
-      qtyInput?.addEventListener("input", update);
+      size.addEventListener("change", update);
+      qty.addEventListener("input", update);
       update();
     });
   }
 
-  // Live updates for everyone
-  const q = query(collection(db, "products"), orderBy("createdAt", "desc"));
-  onSnapshot(q, (snap) => {
-    if (snap.empty){
-      grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:#666;">No products yet. Add some from the Workers page.</p>`;
+  const q = query(collection(db,"products"), orderBy("createdAt","desc"));
+  onSnapshot(q,(snap)=>{
+    if(snap.empty){
+      grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:#666;">No products yet.</p>`;
       return;
     }
-    grid.innerHTML = snap.docs.map(d => cardHTML(d.data())).join("");
+    grid.innerHTML = snap.docs.map(d=>cardHTML(d.data())).join("");
     wireWhatsApp();
   });
 </script>
-
 </body>
 </html>
