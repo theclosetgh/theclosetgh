@@ -30,17 +30,23 @@
   .btnSmall{width:auto;padding:8px 10px}
   .topActions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .hide{display:none}
-
-  /* tiny loading bar */
-  #gateLoading{display:flex;align-items:center;gap:10px}
-  .dot{width:10px;height:10px;border-radius:50%;background:#000;opacity:.15;animation:blink 1.1s infinite}
-  .dot:nth-child(2){animation-delay:.2s}
-  .dot:nth-child(3){animation-delay:.4s}
-  @keyframes blink{0%,100%{opacity:.15}50%{opacity:.9}}
 </style>
 </head>
 
 <body>
+<script>
+  // STEALTH MODE:
+  // Only show workers page when URL has ?admin=1
+  const params = new URLSearchParams(location.search);
+  const isAdminLink = params.get("admin") === "1";
+
+  if (!isAdminLink) {
+    // If they don't have the secret parameter, send them away.
+    // (Prevents normal users from even seeing the login form.)
+    location.replace("/#home");
+  }
+</script>
+
 <div class="wrap">
   <header>
     <h1>Workers – Manage Products</h1>
@@ -50,19 +56,10 @@
     </div>
   </header>
 
-  <!-- Gate loading (prevents flash of page to normal users) -->
-  <div class="card" id="gateCard">
-    <div id="gateLoading">
-      <span style="font-weight:bold;">Checking access</span>
-      <span class="dot"></span><span class="dot"></span><span class="dot"></span>
-    </div>
-    <p class="tiny" style="margin-top:8px;">Authorized staff only.</p>
-  </div>
-
   <!-- LOGIN CARD -->
-  <div class="card hide" id="loginCard">
+  <div class="card" id="loginCard">
     <h2 style="margin:0 0 10px;">Worker Login</h2>
-    <p class="tiny">Only approved workers can manage products.</p>
+    <p class="tiny">Authorized staff only.</p>
 
     <form id="loginForm">
       <label>Email</label>
@@ -136,7 +133,7 @@
         </table>
       </div>
       <p class="tiny" style="margin-top:10px;">
-        If you are logged in but actions fail, your email may not be in the approved list in Firestore (admins/allowed).
+        If you can login but actions fail, your email may not be in the approved list (Firestore: admins/allowed).
       </p>
     </div>
 
@@ -153,7 +150,6 @@
     getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
   } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
 
-  // Firebase (NO analytics)
   const firebaseConfig = {
     apiKey: "AIzaSyCcEqZ9Mga_JcVSAeQv1DKNLlo0QCItYI0",
     authDomain: "the-closet-ee4ef.firebaseapp.com",
@@ -170,8 +166,7 @@
   const CLOUD_NAME = "dwpwtanc8";
   const UPLOAD_PRESET = "the_closet";
 
-  // UI elements
-  const gateCard = document.getElementById("gateCard");
+  // UI
   const loginCard = document.getElementById("loginCard");
   const loginForm = document.getElementById("loginForm");
   const loginBtn = document.getElementById("loginBtn");
@@ -182,12 +177,9 @@
   const submitBtn = document.getElementById("submitBtn");
   const list = document.getElementById("list");
 
-  // Gate: if not logged in, show login; no access without auth
+  // Hide from non-logged users after they reach ?admin=1
   onAuthStateChanged(auth, (user) => {
-    gateCard.classList.add("hide");
-
     if (!user) {
-      // not logged in → show login only
       workersUI.classList.add("hide");
       logoutBtn.classList.add("hide");
       loginCard.classList.remove("hide");
@@ -195,7 +187,6 @@
       return;
     }
 
-    // logged in → show workers UI
     loginCard.classList.add("hide");
     workersUI.classList.remove("hide");
     logoutBtn.classList.remove("hide");
@@ -222,6 +213,8 @@
   // Logout
   logoutBtn.addEventListener("click", async () => {
     await signOut(auth);
+    // Keep stealth; send them away after logout
+    location.replace("/#home");
   });
 
   // Cloudinary upload
@@ -342,6 +335,5 @@
     }
   });
 </script>
-
 </body>
 </html>
