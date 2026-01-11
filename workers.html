@@ -32,7 +32,6 @@
 </head>
 <body>
 
-<!-- PIN -->
 <script>
   (function(){
     const PIN="2005";
@@ -85,7 +84,9 @@
       </div>
 
       <button type="submit" id="submitBtn">Upload & Add Product</button>
-      <p class="tiny" style="margin-top:10px;">If upload fails: preset must be UNSIGNED and named <b>the_closet</b>.</p>
+      <p class="tiny" style="margin-top:10px;">
+        Cloudinary preset must be UNSIGNED and named <b>the_closet</b>.
+      </p>
     </form>
   </div>
 
@@ -116,20 +117,19 @@
     query, orderBy, onSnapshot, doc, updateDoc, deleteDoc
   } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-  // Firebase (Firestore only)
+  // ✅ NO analytics here
   const firebaseConfig = {
     apiKey: "AIzaSyCcEqZ9Mga_JcVSAeQv1DKNLlo0QCItYI0",
     authDomain: "the-closet-ee4ef.firebaseapp.com",
     projectId: "the-closet-ee4ef",
     messagingSenderId: "386905202760",
-    appId: "1:386905202760:web:efe9e882049ce7ad31f87d",
-    measurementId: "G-RK2H1B1CVW"
+    appId: "1:386905202760:web:efe9e882049ce7ad31f87d"
   };
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  // Cloudinary (FIXED preset name)
+  // Cloudinary (fixed)
   const CLOUD_NAME = "dwpwtanc8";
   const UPLOAD_PRESET = "the_closet";
 
@@ -147,9 +147,7 @@
     const res = await fetch(url, { method:"POST", body: fd });
     const data = await res.json();
 
-    if (!res.ok) {
-      throw new Error(data.error?.message || "Cloudinary upload failed");
-    }
+    if (!res.ok) throw new Error(data.error?.message || "Cloudinary upload failed");
     return data.secure_url;
   }
 
@@ -170,7 +168,6 @@
 
     try{
       const imageUrl = await uploadToCloudinary(file);
-
       submitBtn.textContent = "Saving product...";
 
       await addDoc(collection(db,"products"),{
@@ -183,14 +180,13 @@
       form.reset();
     }catch(err){
       console.error(err);
-      alert("❌ Upload failed.\n\n" + err.message + "\n\nFix: Cloudinary preset must be UNSIGNED and named the_closet.");
+      alert("❌ Upload failed:\n\n" + err.message);
     }finally{
       submitBtn.disabled = false;
       submitBtn.textContent = "Upload & Add Product";
     }
   });
 
-  // list & actions
   const q = query(collection(db,"products"), orderBy("createdAt","desc"));
   onSnapshot(q,(snap)=>{
     if(snap.empty){
@@ -236,4 +232,20 @@
         return;
       }
       if(btn.dataset.action==="set-stock"){
-        const setTo = confirm("Mark as OUT OF STOCK?\nOK = OUT, Cancel =
+        const setTo = confirm("Mark as OUT OF STOCK?\nOK = OUT, Cancel = IN STOCK");
+        await updateDoc(refDoc,{ outOfStock: setTo });
+        return;
+      }
+      if(btn.dataset.action==="delete"){
+        if(!confirm("Delete this product?")) return;
+        await deleteDoc(refDoc);
+        alert("✅ Deleted");
+      }
+    }catch(err){
+      console.error(err);
+      alert("❌ Action failed: " + err.message);
+    }
+  });
+</script>
+</body>
+</html>
