@@ -12,11 +12,13 @@
   *{margin:0;padding:0;box-sizing:border-box}
   body{font-family:Arial,sans-serif;background:#f8f8f8;color:#333}
 
+  /* Header */
   header{background:#000;color:#fff;padding:20px 0;text-align:center;position:sticky;top:0;z-index:1000}
   header h1{letter-spacing:3px;font-size:2rem}
   nav a{color:#fff;text-decoration:none;margin:0 15px;font-weight:bold}
   nav a:hover{color:#ff4081}
 
+  /* Hero */
   .hero{width:100%;height:100vh;background:url('home.jpg') no-repeat center center/cover;display:flex;align-items:center;justify-content:center;position:relative;text-align:center;color:#fff}
   .hero::after{content:'';position:absolute;inset:0;background:rgba(0,0,0,.5)}
   .hero-content{position:relative;z-index:2;padding:0 14px}
@@ -24,10 +26,12 @@
   .hero button{background:#ff4081;border:none;color:#fff;padding:15px 30px;font-size:1.2rem;cursor:pointer;border-radius:10px}
   .hero button:hover{opacity:.92}
 
+  /* Sections */
   section{padding:50px 20px;max-width:1200px;margin:auto}
   section h2{text-align:center;margin-bottom:16px}
   .hint{max-width:760px;margin:0 auto 22px auto;text-align:center;color:#666}
 
+  /* Products */
   .products{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:25px}
   .product{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,.1);padding-bottom:15px;transition:transform .3s;position:relative}
   .product:hover{transform:translateY(-5px)}
@@ -51,13 +55,15 @@
   label{display:block;margin-top:10px;font-weight:bold}
   select,input[type="number"]{margin-top:5px;padding:8px;width:85%;border:1px solid #ddd;border-radius:8px}
 
+  /* Contact */
   .contact{text-align:center;background:#fff;padding:30px;border-radius:12px;box-shadow:0 4px 10px rgba(0,0,0,.05)}
   .contact a{display:block;margin-top:10px;text-decoration:none;color:#000;font-weight:bold}
   .contact a:hover{text-decoration:underline}
 
+  /* Footer */
   footer{background:#000;color:#fff;text-align:center;padding:20px;margin-top:40px}
-  footer a{color:#fff;font-weight:bold}
 
+  /* Responsive */
   @media (max-width:768px){
     .hero h2{font-size:2rem}
     .products{grid-template-columns:repeat(2,1fr)}
@@ -84,7 +90,6 @@
     <a href="#home">HOME</a>
     <a href="#shop">SHOP</a>
     <a href="#contact">CONTACT</a>
-    <a href="./workers.html">WORKERS</a>
   </nav>
 </header>
 
@@ -105,12 +110,12 @@
   <h2>Contact</h2>
   <div class="contact">
     <a href="https://wa.me/233503674353" target="_blank">📱 WhatsApp: 0503674353</a>
-    <a href="https://www.tiktok.com/@the.closetgh" target="_blank">🎵 TikTok: @the.closetgh</a>
+    <a href="https://www.tiktok.com/@the.closetgh" target="_blank">🎵 TikTok: @theclosetgh</a>
   </div>
 </section>
 
 <footer>
-  <p>© 2026 THE CLOSET • <a href="./workers.html">Workers</a></p>
+  <p>© 2026 THE CLOSET</p>
 </footer>
 
 <!-- ORDER MODAL -->
@@ -141,7 +146,6 @@
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
   import { getFirestore, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
-  // Firebase (NO analytics)
   const firebaseConfig = {
     apiKey: "AIzaSyCcEqZ9Mga_JcVSAeQv1DKNLlo0QCItYI0",
     authDomain: "the-closet-ee4ef.firebaseapp.com",
@@ -178,6 +182,7 @@
       `${order.name} • Size: ${order.size} • Qty: ${order.qty} • ${order.priceText}`;
     orderModal.style.display = "flex";
   }
+
   function closeOrder(){
     orderModal.style.display = "none";
   }
@@ -253,7 +258,6 @@ Please confirm availability.`;
     `;
   }
 
-  // Wire order buttons
   function wireOrders(){
     document.querySelectorAll(".product").forEach(card=>{
       const out = card.dataset.out === "1";
