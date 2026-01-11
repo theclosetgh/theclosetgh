@@ -28,85 +28,103 @@
   .pill.off{background:#fff4f4;color:#8a0f0f;border:1px solid #f0c0c0}
   .actions{display:flex;gap:8px;flex-wrap:wrap}
   .btnSmall{width:auto;padding:8px 10px}
+  .topActions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .hide{display:none}
 </style>
 </head>
 <body>
 
-<script>
-  (function(){
-    const PIN="2005";
-    while(true){
-      const x = prompt("Mr Edric kindly input your PIN");
-      if(x===null){ location.href="./index.html"; return; }
-      if(x.trim()===PIN) break;
-      alert("Wrong PIN. Try again.");
-    }
-  })();
-</script>
-
 <div class="wrap">
   <header>
     <h1>Workers – Manage Products</h1>
-    <a href="./index.html">← Back to Shop</a>
+    <div class="topActions">
+      <a href="./index.html">← Back to Shop</a>
+      <button id="logoutBtn" class="btnSmall danger hide" type="button">Log out</button>
+    </div>
   </header>
 
-  <div class="card">
-    <h2 style="margin:0 0 10px;">Add New Product</h2>
-    <form id="productForm">
-      <div class="row">
-        <div>
-          <label>Product Name</label>
-          <input type="text" id="name" required>
-        </div>
-        <div>
-          <label>Price (GHC)</label>
-          <input type="number" id="price" min="1" required>
-        </div>
-      </div>
+  <!-- LOGIN CARD -->
+  <div class="card" id="loginCard">
+    <h2 style="margin:0 0 10px;">Worker Login</h2>
+    <p class="tiny">Only approved workers can manage products.</p>
 
-      <label>Upload Product Image</label>
-      <input type="file" id="imageFile" accept="image/*" required>
+    <form id="loginForm">
+      <label>Email</label>
+      <input type="email" id="loginEmail" placeholder="worker@email.com" required>
 
-      <label>Sizes (comma separated)</label>
-      <input type="text" id="sizes" placeholder="M,L,XL" required>
+      <label>Password</label>
+      <input type="password" id="loginPass" placeholder="********" required>
 
-      <div class="row">
-        <div>
-          <label>Discount (per product)</label>
-          <input type="checkbox" id="discountEnabled" style="width:auto; transform:scale(1.2); margin-top:10px;">
-          <span class="tiny"> Enable discount</span>
-        </div>
-        <div>
-          <label>Stock</label>
-          <input type="checkbox" id="outOfStock" style="width:auto; transform:scale(1.2); margin-top:10px;">
-          <span class="tiny"> Mark out of stock</span>
-        </div>
-      </div>
-
-      <button type="submit" id="submitBtn">Upload & Add Product</button>
-      <p class="tiny" style="margin-top:10px;">
-        Cloudinary preset must be UNSIGNED and named <b>the_closet</b>.
-      </p>
+      <button type="submit" id="loginBtn">Sign in</button>
     </form>
+
+    <p class="tiny" style="margin-top:10px;">
+      Forgot password? Ask admin to reset.
+    </p>
   </div>
 
-  <div class="card">
-    <h2 style="margin:0 0 10px;">Current Products</h2>
-    <div style="overflow:auto;">
-      <table>
-        <thead>
-          <tr>
-            <th>Preview</th>
-            <th>Name</th>
-            <th>Price</th>
-            <th>Discount</th>
-            <th>Stock</th>
-            <th>Actions</th>
-          </tr>
-        </thead>
-        <tbody id="list"></tbody>
-      </table>
+  <!-- MAIN WORKERS UI (HIDDEN until login) -->
+  <div id="workersUI" class="hide">
+
+    <div class="card">
+      <h2 style="margin:0 0 10px;">Add New Product</h2>
+      <form id="productForm">
+        <div class="row">
+          <div>
+            <label>Product Name</label>
+            <input type="text" id="name" required>
+          </div>
+          <div>
+            <label>Price (GHC)</label>
+            <input type="number" id="price" min="1" required>
+          </div>
+        </div>
+
+        <label>Upload Product Image</label>
+        <input type="file" id="imageFile" accept="image/*" required>
+
+        <label>Sizes (comma separated)</label>
+        <input type="text" id="sizes" placeholder="M,L,XL" required>
+
+        <div class="row">
+          <div>
+            <label>Discount (per product)</label>
+            <input type="checkbox" id="discountEnabled" style="width:auto; transform:scale(1.2); margin-top:10px;">
+            <span class="tiny"> Enable discount</span>
+          </div>
+          <div>
+            <label>Stock</label>
+            <input type="checkbox" id="outOfStock" style="width:auto; transform:scale(1.2); margin-top:10px;">
+            <span class="tiny"> Mark out of stock</span>
+          </div>
+        </div>
+
+        <button type="submit" id="submitBtn">Upload & Add Product</button>
+        <p class="tiny" style="margin-top:10px;">
+          Cloudinary preset must be UNSIGNED and named <b>the_closet</b>.
+        </p>
+      </form>
     </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 10px;">Current Products</h2>
+      <div style="overflow:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Preview</th>
+              <th>Name</th>
+              <th>Price</th>
+              <th>Discount</th>
+              <th>Stock</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="list"></tbody>
+        </table>
+      </div>
+    </div>
+
   </div>
 </div>
 
@@ -116,8 +134,11 @@
     getFirestore, collection, addDoc, serverTimestamp,
     query, orderBy, onSnapshot, doc, updateDoc, deleteDoc
   } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
+  import {
+    getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
+  } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
 
-  // ✅ NO analytics here
+  // Firebase (NO analytics)
   const firebaseConfig = {
     apiKey: "AIzaSyCcEqZ9Mga_JcVSAeQv1DKNLlo0QCItYI0",
     authDomain: "the-closet-ee4ef.firebaseapp.com",
@@ -128,15 +149,61 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
+  const auth = getAuth(app);
 
-  // Cloudinary (fixed)
+  // Cloudinary
   const CLOUD_NAME = "dwpwtanc8";
   const UPLOAD_PRESET = "the_closet";
 
-  const form = document.getElementById("productForm");
+  // UI elements
+  const loginCard = document.getElementById("loginCard");
+  const loginForm = document.getElementById("loginForm");
+  const loginBtn = document.getElementById("loginBtn");
+  const logoutBtn = document.getElementById("logoutBtn");
+  const workersUI = document.getElementById("workersUI");
+
+  const productForm = document.getElementById("productForm");
   const submitBtn = document.getElementById("submitBtn");
   const list = document.getElementById("list");
 
+  // Auth gate
+  onAuthStateChanged(auth, (user) => {
+    if (user) {
+      loginCard.classList.add("hide");
+      workersUI.classList.remove("hide");
+      logoutBtn.classList.remove("hide");
+      startLiveList(); // start Firestore listener only when logged in
+    } else {
+      workersUI.classList.add("hide");
+      logoutBtn.classList.add("hide");
+      loginCard.classList.remove("hide");
+      list.innerHTML = "";
+    }
+  });
+
+  // Login
+  loginForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    loginBtn.disabled = true;
+    loginBtn.textContent = "Signing in...";
+    try {
+      const email = document.getElementById("loginEmail").value.trim();
+      const pass = document.getElementById("loginPass").value;
+      await signInWithEmailAndPassword(auth, email, pass);
+    } catch (err) {
+      alert("❌ Login failed: " + (err.message || "Try again"));
+    } finally {
+      loginBtn.disabled = false;
+      loginBtn.textContent = "Sign in";
+    }
+  });
+
+  // Logout
+  logoutBtn.addEventListener("click", async () => {
+    await signOut(auth);
+  });
+
+  // Cloudinary upload
   async function uploadToCloudinary(file){
     const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
     const fd = new FormData();
@@ -146,12 +213,12 @@
 
     const res = await fetch(url, { method:"POST", body: fd });
     const data = await res.json();
-
     if (!res.ok) throw new Error(data.error?.message || "Cloudinary upload failed");
     return data.secure_url;
   }
 
-  form.addEventListener("submit", async (e)=>{
+  // Add product (only works when logged in)
+  productForm.addEventListener("submit", async (e)=>{
     e.preventDefault();
 
     const name = document.getElementById("name").value.trim();
@@ -177,45 +244,51 @@
       });
 
       alert("✅ Product added!");
-      form.reset();
+      productForm.reset();
     }catch(err){
       console.error(err);
-      alert("❌ Upload failed:\n\n" + err.message);
+      alert("❌ Failed: " + (err.message || "Try again"));
     }finally{
       submitBtn.disabled = false;
       submitBtn.textContent = "Upload & Add Product";
     }
   });
 
-  const q = query(collection(db,"products"), orderBy("createdAt","desc"));
-  onSnapshot(q,(snap)=>{
-    if(snap.empty){
-      list.innerHTML = `<tr><td colspan="6">No products yet.</td></tr>`;
-      return;
-    }
-    list.innerHTML = snap.docs.map(d=>{
-      const p = d.data();
-      const id = d.id;
+  // Live list + actions (only after login)
+  let unsub = null;
+  function startLiveList(){
+    if (unsub) return; // prevent double listeners
 
-      const disc = p.discountEnabled ? `<span class="pill on">ON</span>` : `<span class="pill off">OFF</span>`;
-      const stock = p.outOfStock ? `<span class="pill off">OUT</span>` : `<span class="pill on">IN</span>`;
+    const qy = query(collection(db,"products"), orderBy("createdAt","desc"));
+    unsub = onSnapshot(qy,(snap)=>{
+      if(snap.empty){
+        list.innerHTML = `<tr><td colspan="6">No products yet.</td></tr>`;
+        return;
+      }
+      list.innerHTML = snap.docs.map(d=>{
+        const p = d.data();
+        const id = d.id;
 
-      return `
-        <tr data-id="${id}">
-          <td>${p.imageUrl ? `<img src="${p.imageUrl}" style="width:55px;height:55px;object-fit:cover;border-radius:8px;">` : ""}</td>
-          <td>${p.name||""}</td>
-          <td>GHC ${p.price||""}</td>
-          <td>${disc}</td>
-          <td>${stock}</td>
-          <td class="actions">
-            <button type="button" class="btnSmall" data-action="set-discount">Set Discount</button>
-            <button type="button" class="btnSmall" data-action="set-stock">Set Stock</button>
-            <button type="button" class="btnSmall danger" data-action="delete">Delete</button>
-          </td>
-        </tr>
-      `;
-    }).join("");
-  });
+        const disc = p.discountEnabled ? `<span class="pill on">ON</span>` : `<span class="pill off">OFF</span>`;
+        const stock = p.outOfStock ? `<span class="pill off">OUT</span>` : `<span class="pill on">IN</span>`;
+
+        return `
+          <tr data-id="${id}">
+            <td>${p.imageUrl ? `<img src="${p.imageUrl}" style="width:55px;height:55px;object-fit:cover;border-radius:8px;">` : ""}</td>
+            <td>${p.name||""}</td>
+            <td>GHC ${p.price||""}</td>
+            <td>${disc}</td>
+            <td>${stock}</td>
+            <td class="actions">
+              <button type="button" class="btnSmall" data-action="set-discount">Set Discount</button>
+              <button type="button" class="btnSmall" data-action="set-stock">Set Stock</button>
+              <button type="button" class="btnSmall danger" data-action="delete">Delete</button>
+            </td>
+          </tr>
+        `;
+      }).join("");
+    });
+  }
 
   list.addEventListener("click", async (e)=>{
     const btn = e.target.closest("button[data-action]");
@@ -243,7 +316,7 @@
       }
     }catch(err){
       console.error(err);
-      alert("❌ Action failed: " + err.message);
+      alert("❌ Action failed: " + (err.message || "Try again"));
     }
   });
 </script>
