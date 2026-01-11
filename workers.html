@@ -1,142 +1,145 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<title>THE CLOSET – Workers</title>
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<style>
-  body{font-family:Arial,sans-serif;background:#f5f5f5;padding:20px;color:#111}
-  .wrap{max-width:1000px;margin:0 auto}
-  header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
-  h1{margin:0}
-  a{color:#000;font-weight:bold}
-  .card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 5px 15px rgba(0,0,0,.08);margin-bottom:16px}
-  label{font-weight:bold;margin-top:10px;display:block}
-  input,button{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px;font-size:15px}
-  button{background:#000;color:#fff;cursor:pointer}
-  button:hover{opacity:.92}
-  button:disabled{opacity:.65;cursor:not-allowed}
-  .danger{background:#b00020}
-  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-  @media (max-width:800px){.row{grid-template-columns:1fr}}
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>THE CLOSET</title>
 
-  table{width:100%;border-collapse:collapse}
-  th,td{padding:10px;border-bottom:1px solid #eee;text-align:left;vertical-align:middle}
-  .tiny{font-size:.9rem;color:#666}
-  .pill{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:bold;font-size:.85rem}
-  .pill.on{background:#e9fff1;color:#0b6b2a;border:1px solid #bfeccc}
-  .pill.off{background:#fff4f4;color:#8a0f0f;border:1px solid #f0c0c0}
-  .actions{display:flex;gap:8px;flex-wrap:wrap}
-  .btnSmall{width:auto;padding:8px 10px}
-  .topActions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
-  .hide{display:none}
+<meta name="description" content="THE CLOSET GH — quality tops and streetwear. Shop new arrivals and order via WhatsApp.">
+<link rel="canonical" href="https://www.theclosetgh.com/">
+
+<style>
+  *{margin:0;padding:0;box-sizing:border-box}
+  body{font-family:Arial,sans-serif;background:#f8f8f8;color:#333}
+
+  header{background:#000;color:#fff;padding:20px 0;text-align:center;position:sticky;top:0;z-index:1000}
+  header h1{letter-spacing:3px;font-size:2rem}
+  nav a{color:#fff;text-decoration:none;margin:0 15px;font-weight:bold}
+  nav a:hover{color:#ff4081}
+
+  .hero{width:100%;height:100vh;background:url('home.jpg') no-repeat center center/cover;display:flex;align-items:center;justify-content:center;position:relative;text-align:center;color:#fff}
+  .hero::after{content:'';position:absolute;inset:0;background:rgba(0,0,0,.5)}
+  .hero-content{position:relative;z-index:2;padding:0 14px}
+  .hero h2{font-size:3rem;margin-bottom:20px}
+  .hero button{background:#ff4081;border:none;color:#fff;padding:15px 30px;font-size:1.2rem;cursor:pointer;border-radius:10px}
+  .hero button:hover{opacity:.92}
+
+  section{padding:50px 20px;max-width:1200px;margin:auto}
+  section h2{text-align:center;margin-bottom:16px}
+  .hint{max-width:760px;margin:0 auto 22px auto;text-align:center;color:#666}
+
+  .products{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:25px}
+  .product{background:#fff;border-radius:12px;overflow:hidden;box-shadow:0 4px 10px rgba(0,0,0,.1);padding-bottom:15px;transition:transform .3s;position:relative}
+  .product:hover{transform:translateY(-5px)}
+  .product img{width:100%;height:300px;object-fit:contain;background:#fff}
+  .product-content{padding:15px;text-align:center}
+  .product-content h3{margin-bottom:5px}
+  .product-content p{font-size:.95rem;color:#666}
+
+  .badge-top{position:absolute;top:12px;left:12px;background:#111;color:#fff;font-weight:bold;padding:6px 10px;border-radius:999px;font-size:.85rem}
+  .badge-top.out{background:#b00020}
+
+  .price{margin:10px 0;display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap}
+  .price .old{color:#999;text-decoration:line-through;font-weight:bold}
+  .price .new{color:#ff4081;font-weight:bold}
+  .price .disc{background:#ff4081;color:#fff;font-weight:bold;padding:4px 8px;border-radius:999px;font-size:.85rem}
+
+  .order-btn{display:inline-block;margin-top:10px;background:#25D366;color:#fff;padding:10px 20px;border:none;border-radius:8px;font-weight:bold;cursor:pointer;transition:background .3s}
+  .order-btn:hover{background:#128C7E}
+  .order-btn.disabled{background:#cfcfcf;color:#666;pointer-events:none;cursor:not-allowed}
+
+  label{display:block;margin-top:10px;font-weight:bold}
+  select,input[type="number"]{margin-top:5px;padding:8px;width:85%;border:1px solid #ddd;border-radius:8px}
+
+  .contact{text-align:center;background:#fff;padding:30px;border-radius:12px;box-shadow:0 4px 10px rgba(0,0,0,.05)}
+  .contact a{display:block;margin-top:10px;text-decoration:none;color:#000;font-weight:bold}
+  .contact a:hover{text-decoration:underline}
+
+  footer{background:#000;color:#fff;text-align:center;padding:20px;margin-top:40px}
+  footer a{color:#fff;font-weight:bold}
+
+  @media (max-width:768px){
+    .hero h2{font-size:2rem}
+    .products{grid-template-columns:repeat(2,1fr)}
+  }
+  @media (max-width:480px){
+    .products{grid-template-columns:1fr}
+  }
+
+  /* Modal */
+  #orderModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;padding:18px}
+  #orderBox{background:#fff;padding:18px;border-radius:12px;max-width:420px;width:100%}
+  #orderBox h3{margin-bottom:10px}
+  #orderBox input,#orderBox select{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px}
+  #sendOrder{width:100%;background:#25D366;color:#fff;padding:12px;border:none;border-radius:8px;margin-top:12px;font-weight:bold;cursor:pointer}
+  #cancelOrder{width:100%;padding:10px;margin-top:8px;border:1px solid #ddd;border-radius:8px;cursor:pointer;background:#fff}
+  .smallNote{font-size:.9rem;color:#666;margin-top:8px}
 </style>
 </head>
+
 <body>
+<header>
+  <h1>THE CLOSET</h1>
+  <nav>
+    <a href="#home">HOME</a>
+    <a href="#shop">SHOP</a>
+    <a href="#contact">CONTACT</a>
+    <a href="./workers.html">WORKERS</a>
+  </nav>
+</header>
 
-<div class="wrap">
-  <header>
-    <h1>Workers – Manage Products</h1>
-    <div class="topActions">
-      <a href="./index.html">← Back to Shop</a>
-      <button id="logoutBtn" class="btnSmall danger hide" type="button">Log out</button>
-    </div>
-  </header>
-
-  <!-- LOGIN CARD -->
-  <div class="card" id="loginCard">
-    <h2 style="margin:0 0 10px;">Worker Login</h2>
-    <p class="tiny">Only approved workers can manage products.</p>
-
-    <form id="loginForm">
-      <label>Email</label>
-      <input type="email" id="loginEmail" placeholder="worker@email.com" required>
-
-      <label>Password</label>
-      <input type="password" id="loginPass" placeholder="********" required>
-
-      <button type="submit" id="loginBtn">Sign in</button>
-    </form>
-
-    <p class="tiny" style="margin-top:10px;">
-      Forgot password? Ask admin to reset.
-    </p>
+<section id="home" class="hero">
+  <div class="hero-content">
+    <h2>Welcome to THE CLOSET</h2>
+    <button onclick="document.getElementById('shop').scrollIntoView({behavior:'smooth'})">Shop Now</button>
   </div>
+</section>
 
-  <!-- MAIN WORKERS UI (HIDDEN until login) -->
-  <div id="workersUI" class="hide">
+<section id="shop">
+  <h2>Available Dresses</h2>
+  <p class="hint">All items are online — everyone sees the same stock.</p>
+  <div class="products" id="productsGrid"></div>
+</section>
 
-    <div class="card">
-      <h2 style="margin:0 0 10px;">Add New Product</h2>
-      <form id="productForm">
-        <div class="row">
-          <div>
-            <label>Product Name</label>
-            <input type="text" id="name" required>
-          </div>
-          <div>
-            <label>Price (GHC)</label>
-            <input type="number" id="price" min="1" required>
-          </div>
-        </div>
+<section id="contact">
+  <h2>Contact</h2>
+  <div class="contact">
+    <a href="https://wa.me/233503674353" target="_blank">📱 WhatsApp: 0503674353</a>
+    <a href="https://www.tiktok.com/@the.closetgh" target="_blank">🎵 TikTok: @the.closetgh</a>
+  </div>
+</section>
 
-        <label>Upload Product Image</label>
-        <input type="file" id="imageFile" accept="image/*" required>
+<footer>
+  <p>© 2026 THE CLOSET • <a href="./workers.html">Workers</a></p>
+</footer>
 
-        <label>Sizes (comma separated)</label>
-        <input type="text" id="sizes" placeholder="M,L,XL" required>
+<!-- ORDER MODAL -->
+<div id="orderModal">
+  <div id="orderBox">
+    <h3>Complete your order</h3>
 
-        <div class="row">
-          <div>
-            <label>Discount (per product)</label>
-            <input type="checkbox" id="discountEnabled" style="width:auto; transform:scale(1.2); margin-top:10px;">
-            <span class="tiny"> Enable discount</span>
-          </div>
-          <div>
-            <label>Stock</label>
-            <input type="checkbox" id="outOfStock" style="width:auto; transform:scale(1.2); margin-top:10px;">
-            <span class="tiny"> Mark out of stock</span>
-          </div>
-        </div>
+    <div class="smallNote" id="orderItemLine"></div>
 
-        <button type="submit" id="submitBtn">Upload & Add Product</button>
-        <p class="tiny" style="margin-top:10px;">
-          Cloudinary preset must be UNSIGNED and named <b>the_closet</b>.
-        </p>
-      </form>
-    </div>
+    <label style="margin-top:10px;">Name</label>
+    <input id="custName" placeholder="Your name">
 
-    <div class="card">
-      <h2 style="margin:0 0 10px;">Current Products</h2>
-      <div style="overflow:auto;">
-        <table>
-          <thead>
-            <tr>
-              <th>Preview</th>
-              <th>Name</th>
-              <th>Price</th>
-              <th>Discount</th>
-              <th>Stock</th>
-              <th>Actions</th>
-            </tr>
-          </thead>
-          <tbody id="list"></tbody>
-        </table>
-      </div>
-    </div>
+    <label style="margin-top:10px;">Location / Hostel</label>
+    <input id="custLocation" placeholder="Eg. UPSA Hostel / Madina">
 
+    <label style="margin-top:10px;">Delivery</label>
+    <select id="custDelivery">
+      <option>Pickup</option>
+      <option>Delivery</option>
+    </select>
+
+    <button id="sendOrder">Send on WhatsApp</button>
+    <button id="cancelOrder" type="button">Cancel</button>
   </div>
 </div>
 
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
-  import {
-    getFirestore, collection, addDoc, serverTimestamp,
-    query, orderBy, onSnapshot, doc, updateDoc, deleteDoc
-  } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
-  import {
-    getAuth, onAuthStateChanged, signInWithEmailAndPassword, signOut
-  } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-auth.js";
+  import { getFirestore, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
 
   // Firebase (NO analytics)
   const firebaseConfig = {
@@ -149,175 +152,142 @@
 
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
-  const auth = getAuth(app);
 
-  // Cloudinary
-  const CLOUD_NAME = "dwpwtanc8";
-  const UPLOAD_PRESET = "the_closet";
+  const WHATSAPP_NUMBER = "233503674353";
+  const DISCOUNT_PERCENT = 15;
 
-  // UI elements
-  const loginCard = document.getElementById("loginCard");
-  const loginForm = document.getElementById("loginForm");
-  const loginBtn = document.getElementById("loginBtn");
-  const logoutBtn = document.getElementById("logoutBtn");
-  const workersUI = document.getElementById("workersUI");
+  const grid = document.getElementById("productsGrid");
 
-  const productForm = document.getElementById("productForm");
-  const submitBtn = document.getElementById("submitBtn");
-  const list = document.getElementById("list");
+  function money(n){ return `GHC ${Math.round(Number(n||0))}`; }
+  function discounted(p){ return Number(p) * (100 - DISCOUNT_PERCENT) / 100; }
 
-  // Auth gate
-  onAuthStateChanged(auth, (user) => {
-    if (user) {
-      loginCard.classList.add("hide");
-      workersUI.classList.remove("hide");
-      logoutBtn.classList.remove("hide");
-      startLiveList(); // start Firestore listener only when logged in
-    } else {
-      workersUI.classList.add("hide");
-      logoutBtn.classList.add("hide");
-      loginCard.classList.remove("hide");
-      list.innerHTML = "";
-    }
-  });
+  // Modal state
+  const orderModal = document.getElementById("orderModal");
+  const orderItemLine = document.getElementById("orderItemLine");
+  const custName = document.getElementById("custName");
+  const custLocation = document.getElementById("custLocation");
+  const custDelivery = document.getElementById("custDelivery");
+  const sendOrder = document.getElementById("sendOrder");
+  const cancelOrder = document.getElementById("cancelOrder");
 
-  // Login
-  loginForm.addEventListener("submit", async (e) => {
-    e.preventDefault();
-    loginBtn.disabled = true;
-    loginBtn.textContent = "Signing in...";
-    try {
-      const email = document.getElementById("loginEmail").value.trim();
-      const pass = document.getElementById("loginPass").value;
-      await signInWithEmailAndPassword(auth, email, pass);
-    } catch (err) {
-      alert("❌ Login failed: " + (err.message || "Try again"));
-    } finally {
-      loginBtn.disabled = false;
-      loginBtn.textContent = "Sign in";
-    }
-  });
+  let currentOrder = null;
 
-  // Logout
-  logoutBtn.addEventListener("click", async () => {
-    await signOut(auth);
-  });
-
-  // Cloudinary upload
-  async function uploadToCloudinary(file){
-    const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
-    const fd = new FormData();
-    fd.append("file", file);
-    fd.append("upload_preset", UPLOAD_PRESET);
-    fd.append("folder", "the-closet");
-
-    const res = await fetch(url, { method:"POST", body: fd });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error?.message || "Cloudinary upload failed");
-    return data.secure_url;
+  function openOrder(order){
+    currentOrder = order;
+    orderItemLine.textContent =
+      `${order.name} • Size: ${order.size} • Qty: ${order.qty} • ${order.priceText}`;
+    orderModal.style.display = "flex";
+  }
+  function closeOrder(){
+    orderModal.style.display = "none";
   }
 
-  // Add product (only works when logged in)
-  productForm.addEventListener("submit", async (e)=>{
-    e.preventDefault();
-
-    const name = document.getElementById("name").value.trim();
-    const price = Number(document.getElementById("price").value);
-    const sizes = document.getElementById("sizes").value.split(",").map(s=>s.trim()).filter(Boolean);
-    const discountEnabled = document.getElementById("discountEnabled").checked;
-    const outOfStock = document.getElementById("outOfStock").checked;
-
-    const file = document.getElementById("imageFile").files[0];
-    if(!file){ alert("Upload an image."); return; }
-
-    submitBtn.disabled = true;
-    submitBtn.textContent = "Uploading image...";
-
-    try{
-      const imageUrl = await uploadToCloudinary(file);
-      submitBtn.textContent = "Saving product...";
-
-      await addDoc(collection(db,"products"),{
-        name, price, sizes, imageUrl,
-        discountEnabled, outOfStock,
-        createdAt: serverTimestamp()
-      });
-
-      alert("✅ Product added!");
-      productForm.reset();
-    }catch(err){
-      console.error(err);
-      alert("❌ Failed: " + (err.message || "Try again"));
-    }finally{
-      submitBtn.disabled = false;
-      submitBtn.textContent = "Upload & Add Product";
-    }
+  cancelOrder.addEventListener("click", closeOrder);
+  orderModal.addEventListener("click", (e)=>{
+    if(e.target === orderModal) closeOrder();
   });
 
-  // Live list + actions (only after login)
-  let unsub = null;
-  function startLiveList(){
-    if (unsub) return; // prevent double listeners
+  sendOrder.addEventListener("click", ()=>{
+    const n = custName.value.trim();
+    const l = custLocation.value.trim();
+    const d = custDelivery.value;
 
-    const qy = query(collection(db,"products"), orderBy("createdAt","desc"));
-    unsub = onSnapshot(qy,(snap)=>{
-      if(snap.empty){
-        list.innerHTML = `<tr><td colspan="6">No products yet.</td></tr>`;
-        return;
-      }
-      list.innerHTML = snap.docs.map(d=>{
-        const p = d.data();
-        const id = d.id;
+    if(!currentOrder){ alert("No item selected."); return; }
+    if(!n || !l){ alert("Please fill Name and Location/Hostel."); return; }
 
-        const disc = p.discountEnabled ? `<span class="pill on">ON</span>` : `<span class="pill off">OFF</span>`;
-        const stock = p.outOfStock ? `<span class="pill off">OUT</span>` : `<span class="pill on">IN</span>`;
+    const msg =
+`Hello THE CLOSET 👋
+Order details:
+Name: ${n}
+Location/Hostel: ${l}
+Delivery: ${d}
 
-        return `
-          <tr data-id="${id}">
-            <td>${p.imageUrl ? `<img src="${p.imageUrl}" style="width:55px;height:55px;object-fit:cover;border-radius:8px;">` : ""}</td>
-            <td>${p.name||""}</td>
-            <td>GHC ${p.price||""}</td>
-            <td>${disc}</td>
-            <td>${stock}</td>
-            <td class="actions">
-              <button type="button" class="btnSmall" data-action="set-discount">Set Discount</button>
-              <button type="button" class="btnSmall" data-action="set-stock">Set Stock</button>
-              <button type="button" class="btnSmall danger" data-action="delete">Delete</button>
-            </td>
-          </tr>
-        `;
-      }).join("");
+Item: ${currentOrder.name}
+Size: ${currentOrder.size}
+Quantity: ${currentOrder.qty}
+Price: ${currentOrder.priceText}
+
+Please confirm availability.`;
+
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`, "_blank");
+    closeOrder();
+  });
+
+  function cardHTML(p){
+    const sizes = Array.isArray(p.sizes)&&p.sizes.length ? p.sizes : ["M","L","XL"];
+    const base = Number(p.price||0);
+    const out = !!p.outOfStock;
+    const discOn = !!p.discountEnabled;
+    const final = discOn ? discounted(base) : base;
+
+    const badge = out
+      ? `<div class="badge-top out">OUT OF STOCK</div>`
+      : (discOn ? `<div class="badge-top">DISCOUNT</div>` : "");
+
+    const priceHTML = discOn
+      ? `<span class="old">${money(base)}</span><span class="new">${money(final)}</span><span class="disc">${DISCOUNT_PERCENT}% OFF</span>`
+      : `<span class="new">${money(base)}</span>`;
+
+    const opts = sizes.map(s=>`<option value="${s}">${s}</option>`).join("");
+
+    return `
+      <div class="product" data-base="${base}" data-disc="${discOn?1:0}" data-out="${out?1:0}">
+        ${badge}
+        <img src="${p.imageUrl || 'home.jpg'}" alt="${p.name || 'Product'}">
+        <div class="product-content">
+          <h3>${p.name || "New Item"}</h3>
+          <p>${sizes.join("/")}</p>
+          <div class="price">${priceHTML}</div>
+
+          <label>Size:</label>
+          <select class="size" ${out?"disabled":""}>${opts}</select>
+
+          <label>Quantity:</label>
+          <input type="number" class="quantity" min="1" max="10" value="1" ${out?"disabled":""}>
+
+          <button class="order-btn ${out?"disabled":""}" type="button">
+            ${out ? "Out of Stock" : "Order Now"}
+          </button>
+        </div>
+      </div>
+    `;
+  }
+
+  // Wire order buttons
+  function wireOrders(){
+    document.querySelectorAll(".product").forEach(card=>{
+      const out = card.dataset.out === "1";
+      if(out) return;
+
+      const name = card.querySelector("h3").innerText.trim();
+      const sizeEl = card.querySelector(".size");
+      const qtyEl = card.querySelector(".quantity");
+      const btn = card.querySelector(".order-btn");
+
+      const base = Number(card.dataset.base||0);
+      const discOn = card.dataset.disc === "1";
+      const final = discOn ? discounted(base) : base;
+      const priceText = discOn ? `${money(final)} (${DISCOUNT_PERCENT}% OFF)` : `${money(final)}`;
+
+      btn.addEventListener("click", ()=>{
+        openOrder({
+          name,
+          size: sizeEl.value,
+          qty: qtyEl.value,
+          priceText
+        });
+      });
     });
   }
 
-  list.addEventListener("click", async (e)=>{
-    const btn = e.target.closest("button[data-action]");
-    if(!btn) return;
-
-    const row = btn.closest("tr[data-id]");
-    const id = row.dataset.id;
-    const refDoc = doc(db,"products",id);
-
-    try{
-      if(btn.dataset.action==="set-discount"){
-        const setTo = confirm("Set DISCOUNT to ON?\nOK = ON, Cancel = OFF");
-        await updateDoc(refDoc,{ discountEnabled: setTo });
-        return;
-      }
-      if(btn.dataset.action==="set-stock"){
-        const setTo = confirm("Mark as OUT OF STOCK?\nOK = OUT, Cancel = IN STOCK");
-        await updateDoc(refDoc,{ outOfStock: setTo });
-        return;
-      }
-      if(btn.dataset.action==="delete"){
-        if(!confirm("Delete this product?")) return;
-        await deleteDoc(refDoc);
-        alert("✅ Deleted");
-      }
-    }catch(err){
-      console.error(err);
-      alert("❌ Action failed: " + (err.message || "Try again"));
+  const q = query(collection(db,"products"), orderBy("createdAt","desc"));
+  onSnapshot(q,(snap)=>{
+    if(snap.empty){
+      grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:#666;">No products yet.</p>`;
+      return;
     }
+    grid.innerHTML = snap.docs.map(d=>cardHTML(d.data())).join("");
+    wireOrders();
   });
 </script>
 </body>
