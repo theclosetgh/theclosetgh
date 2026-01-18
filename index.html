@@ -46,7 +46,7 @@
   .hero::after{content:'';position:absolute;inset:0;background:rgba(0,0,0,.5)}
   .hero-content{position:relative;z-index:2;padding:0 14px;max-width:900px}
   .hero h2{font-size:3rem;margin-bottom:14px}
-  .hero p{max-width:760px;margin:0 auto 18px auto;color:rgba(255,255,255,.92)}
+  .hero p{max-width:760px;margin:0 auto 18px auto;color:rgba(255,255,255,.92);line-height:1.5}
   .hero button{background:#ff4081;border:none;color:#fff;padding:15px 30px;font-size:1.2rem;cursor:pointer;border-radius:10px}
   .hero button:hover{opacity:.92}
 
@@ -76,10 +76,8 @@
   select,input[type="number"]{margin-top:5px;padding:8px;width:85%;border:1px solid #ddd;border-radius:8px}
 
   .btnRow{display:flex;gap:10px;justify-content:center;align-items:center;flex-wrap:wrap;margin-top:12px}
-  .order-btn{
+  .btn{
     display:inline-block;
-    background:#25D366;
-    color:#fff;
     padding:10px 18px;
     border:none;
     border-radius:8px;
@@ -87,13 +85,10 @@
     cursor:pointer;
     transition:opacity .12s ease, transform .12s ease;
   }
-  .order-btn:hover{opacity:.92;transform:translateY(-1px)}
-  .order-btn.disabled{background:#cfcfcf;color:#666;pointer-events:none;cursor:not-allowed;transform:none}
-  .order-btn.secondary{
-    background:#111;
-  }
-  .order-btn.secondary:hover{opacity:.92}
-  .order-btn.secondary.disabled{background:#cfcfcf;color:#666}
+  .btn:hover{opacity:.92;transform:translateY(-1px)}
+  .btn.disabled{background:#cfcfcf;color:#666;pointer-events:none;cursor:not-allowed;transform:none}
+  .btn-cart{background:#111;color:#fff}
+  .btn-cart.disabled{background:#cfcfcf;color:#666}
 
   /* Contact */
   .contact{text-align:center;background:#fff;padding:30px;border-radius:12px;box-shadow:0 4px 10px rgba(0,0,0,.05)}
@@ -113,21 +108,8 @@
     select,input[type="number"]{width:100%}
   }
 
-  /* Order Modal */
-  #orderModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:9999;align-items:center;justify-content:center;padding:18px}
-  #orderBox{background:#fff;padding:18px;border-radius:12px;max-width:460px;width:100%}
-  #orderBox h3{margin-bottom:10px}
-  #orderBox input,#orderBox select{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px}
-  #sendOrder{width:100%;background:#25D366;color:#fff;padding:12px;border:none;border-radius:8px;margin-top:12px;font-weight:bold;cursor:pointer}
-  #cancelOrder{width:100%;padding:10px;margin-top:8px;border:1px solid #ddd;border-radius:8px;cursor:pointer;background:#fff}
-  .smallNote{font-size:.9rem;color:#666;margin-top:8px;line-height:1.35}
-
   /* Cart Drawer */
-  .cartOverlay{
-    display:none;
-    position:fixed;inset:0;background:rgba(0,0,0,.55);
-    z-index:9000;
-  }
+  .cartOverlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:9000}
   .cartOverlay.show{display:block}
 
   .cartDrawer{
@@ -143,8 +125,7 @@
   .cartDrawer.show{transform:translateX(0)}
 
   .cartHead{
-    padding:16px;
-    border-bottom:1px solid rgba(0,0,0,.08);
+    padding:16px;border-bottom:1px solid rgba(0,0,0,.08);
     display:flex;align-items:center;justify-content:space-between;gap:10px;
   }
   .cartHead h3{margin:0;font-size:1.1rem;letter-spacing:.3px}
@@ -157,45 +138,27 @@
   .cartBody{padding:14px 16px;overflow:auto;flex:1}
   .cartEmpty{color:#666;text-align:center;padding:26px 8px}
 
-  .cartItem{
-    display:flex;gap:12px;
-    padding:12px 0;border-bottom:1px solid rgba(0,0,0,.08);
-  }
-  .cartThumb{
-    width:74px;height:92px;border-radius:12px;
-    background:#f2f2f2;overflow:hidden;flex:0 0 auto;
-    border:1px solid rgba(0,0,0,.06);
-  }
+  .cartItem{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid rgba(0,0,0,.08)}
+  .cartThumb{width:74px;height:92px;border-radius:12px;background:#f2f2f2;overflow:hidden;flex:0 0 auto;border:1px solid rgba(0,0,0,.06)}
   .cartThumb img{width:100%;height:100%;object-fit:contain;background:#fff;display:block}
   .cartMain{flex:1;min-width:0}
   .cartTitle{font-weight:900;font-size:.95rem;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .cartSub{color:#666;font-size:.86rem;margin-bottom:8px}
-
   .cartRow{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}
-  .qty{
-    display:inline-flex;align-items:center;gap:8px;
-    border:1px solid rgba(0,0,0,.12);
-    border-radius:999px;padding:6px 10px;
-  }
-  .qty button{
-    border:none;background:transparent;cursor:pointer;
-    font-weight:900;font-size:1rem;width:24px;height:24px;border-radius:6px;
-  }
+  .qty{display:inline-flex;align-items:center;gap:8px;border:1px solid rgba(0,0,0,.12);border-radius:999px;padding:6px 10px}
+  .qty button{border:none;background:transparent;cursor:pointer;font-weight:900;font-size:1rem;width:24px;height:24px;border-radius:6px}
   .qty span{min-width:18px;text-align:center;font-weight:900}
   .cartPrice{font-weight:900;color:#ff4081;font-size:.95rem}
   .cartRemove{border:none;background:transparent;cursor:pointer;font-weight:900;color:#111;opacity:.75}
   .cartRemove:hover{opacity:1}
 
-  .cartFoot{
-    border-top:1px solid rgba(0,0,0,.08);
-    padding:14px 16px 16px;background:#fff;
-  }
+  .cartFoot{border-top:1px solid rgba(0,0,0,.08);padding:14px 16px 16px;background:#fff}
   .totals{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;font-weight:900}
   .note{font-size:.88rem;color:#666;margin-bottom:12px;line-height:1.35}
   .cartActions{display:flex;gap:10px}
   .cartActions button,.cartActions a{
-    flex:1;text-align:center;text-decoration:none;
-    border-radius:10px;padding:11px 14px;font-weight:900;font-size:.92rem;
+    flex:1;text-align:center;text-decoration:none;border-radius:10px;
+    padding:11px 14px;font-weight:900;font-size:.92rem;
     border:none;cursor:pointer;
   }
   .clearBtn{background:#fff;border:1px solid rgba(0,0,0,.18)}
@@ -220,7 +183,10 @@
 <section id="home" class="hero">
   <div class="hero-content">
     <h2>Welcome to THE CLOSET</h2>
-    <p>If you choose delivery, it will be arranged via <strong>Yango</strong> or <strong>Bolt</strong>.</p>
+    <p>
+      Browse new arrivals and add to cart.
+      Checkout is via WhatsApp. If you choose delivery, it will be arranged via <strong>Yango</strong> or <strong>Bolt</strong>.
+    </p>
     <button onclick="document.getElementById('shop').scrollIntoView({behavior:'smooth'})">Shop Now</button>
   </div>
 </section>
@@ -229,7 +195,7 @@
   <h2>Available Tops</h2>
   <p class="hint">
     All items are online — everyone sees the same stock.<br>
-    Add items to cart, then checkout on WhatsApp. If you choose delivery, it will be through Yango or Bolt.
+    Add items to cart, then checkout on WhatsApp.
   </p>
   <div class="products" id="productsGrid"></div>
 </section>
@@ -272,30 +238,6 @@
   </div>
 </aside>
 
-<!-- ORDER MODAL (used for both single-item and cart checkout) -->
-<div id="orderModal">
-  <div id="orderBox">
-    <h3>Complete your order</h3>
-
-    <div class="smallNote" id="orderItemLine"></div>
-
-    <label style="margin-top:10px;">Name</label>
-    <input id="custName" placeholder="Your name">
-
-    <label style="margin-top:10px;">Location / Hostel</label>
-    <input id="custLocation" placeholder="Eg. UPSA Hostel / Madina">
-
-    <label style="margin-top:10px;">Delivery</label>
-    <select id="custDelivery">
-      <option>Pickup</option>
-      <option>Delivery</option>
-    </select>
-
-    <button id="sendOrder">Send on WhatsApp</button>
-    <button id="cancelOrder" type="button">Cancel</button>
-  </div>
-</div>
-
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-app.js";
   import { getFirestore, collection, query, orderBy, onSnapshot } from "https://www.gstatic.com/firebasejs/10.12.4/firebase-firestore.js";
@@ -311,7 +253,7 @@
   const app = initializeApp(firebaseConfig);
   const db = getFirestore(app);
 
-  // UPDATED WhatsApp number (0547706620)
+  // WhatsApp number (0547706620)
   const WHATSAPP_NUMBER = "233547706620";
 
   // Discount logic (kept from your code)
@@ -319,7 +261,7 @@
 
   // Cart storage
   const CART_KEY = "thecloset_cart_v1";
-  let cart = loadCart(); // { key: {key,name,size,qty,unitPrice,priceText,imageUrl} }
+  let cart = loadCart(); // { key: {key,name,size,qty,unitPrice,imageUrl} }
 
   const grid = document.getElementById("productsGrid");
 
@@ -334,108 +276,6 @@
       .replaceAll('"',"&quot;")
       .replaceAll("'","&#039;");
   }
-
-  // -----------------------
-  // ORDER MODAL STATE
-  // -----------------------
-  const orderModal = document.getElementById("orderModal");
-  const orderItemLine = document.getElementById("orderItemLine");
-  const custName = document.getElementById("custName");
-  const custLocation = document.getElementById("custLocation");
-  const custDelivery = document.getElementById("custDelivery");
-  const sendOrder = document.getElementById("sendOrder");
-  const cancelOrder = document.getElementById("cancelOrder");
-
-  // mode: "single" | "cart"
-  let currentOrderMode = "single";
-  let currentOrder = null;
-
-  function openOrderModalForSingle(order){
-    currentOrderMode = "single";
-    currentOrder = order;
-    orderItemLine.textContent = `${order.name} • Size: ${order.size} • Qty: ${order.qty} • ${order.priceText}`;
-    orderModal.style.display = "flex";
-  }
-
-  function openOrderModalForCart(){
-    const items = Object.values(cart);
-    if(items.length === 0){
-      alert("Your cart is empty.");
-      return;
-    }
-    currentOrderMode = "cart";
-    currentOrder = null;
-    orderItemLine.textContent = `Cart items: ${items.length} • Total: ${money(cartTotal())}`;
-    orderModal.style.display = "flex";
-  }
-
-  function closeOrder(){
-    orderModal.style.display = "none";
-  }
-
-  cancelOrder.addEventListener("click", closeOrder);
-  orderModal.addEventListener("click", (e)=>{
-    if(e.target === orderModal) closeOrder();
-  });
-
-  sendOrder.addEventListener("click", ()=>{
-    const n = custName.value.trim();
-    const l = custLocation.value.trim();
-    const d = custDelivery.value;
-
-    if(!n || !l){
-      alert("Please fill Name and Location/Hostel.");
-      return;
-    }
-
-    let msg = "";
-
-    if(currentOrderMode === "single"){
-      if(!currentOrder){ alert("No item selected."); return; }
-
-      msg =
-`Hello THE CLOSET 👋
-Order details:
-Name: ${n}
-Location/Hostel: ${l}
-Delivery: ${d} (Delivery can be arranged via Yango or Bolt)
-
-Item: ${currentOrder.name}
-Size: ${currentOrder.size}
-Quantity: ${currentOrder.qty}
-Price: ${currentOrder.priceText}
-
-Please confirm availability.
-If needed, I will send a screenshot of the selected item from the website.`;
-
-    } else {
-      const items = Object.values(cart);
-      if(items.length === 0){ alert("Your cart is empty."); return; }
-
-      const lines = items.map((it, idx)=>{
-        const lineTotal = (Number(it.unitPrice)||0) * (Number(it.qty)||0);
-        return `${idx+1}) ${it.name} | Size: ${it.size} | Qty: ${it.qty} | ${money(lineTotal)}`;
-      }).join("\n");
-
-      msg =
-`Hello THE CLOSET 👋
-Order details:
-Name: ${n}
-Location/Hostel: ${l}
-Delivery: ${d} (Delivery can be arranged via Yango or Bolt)
-
-Items:
-${lines}
-
-Total: ${money(cartTotal())}
-
-Please confirm availability.
-If needed, I will send screenshots of the selected item(s) from the website.`;
-    }
-
-    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`, "_blank");
-    closeOrder();
-  });
 
   // -----------------------
   // CART FUNCTIONS
@@ -541,11 +381,29 @@ If needed, I will send screenshots of the selected item(s) from the website.`;
   cartOverlay.addEventListener("click", closeCart);
   clearCartBtn.addEventListener("click", clearCart);
 
-  // Checkout: open modal to collect name/location/delivery, then send WhatsApp message
+  // Checkout -> WhatsApp message from cart (no extra form)
   checkoutBtn.addEventListener("click", (e)=>{
     e.preventDefault();
-    closeCart();
-    openOrderModalForCart();
+    const items = Object.values(cart);
+    if(items.length === 0){ alert("Your cart is empty."); return; }
+
+    const lines = items.map((it, idx)=>{
+      const lineTotal = (Number(it.unitPrice)||0) * (Number(it.qty)||0);
+      return `${idx+1}) ${it.name} | Size: ${it.size} | Qty: ${it.qty} | ${money(lineTotal)}`;
+    }).join("\n");
+
+    const msg =
+`Hello THE CLOSET 👋
+I want to order the following items:
+
+${lines}
+
+Total: ${money(cartTotal())}
+
+Delivery: If I choose delivery, please arrange via Yango or Bolt.
+Please confirm availability.`;
+
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`, "_blank");
   });
 
   function renderCart(){
@@ -580,7 +438,6 @@ If needed, I will send screenshots of the selected item(s) from the website.`;
       `;
     }).join("");
 
-    // Wire cart item controls via event delegation
     cartBody.querySelectorAll("[data-inc]").forEach(b=>{
       b.addEventListener("click", ()=> incQty(b.getAttribute("data-inc")));
     });
@@ -612,7 +469,6 @@ If needed, I will send screenshots of the selected item(s) from the website.`;
 
     const opts = sizes.map(s=>`<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
 
-    // Store necessary data as dataset for actions
     const safeName = escapeHtml(p.name || "New Item");
     const img = escapeHtml(p.imageUrl || "home.jpg");
 
@@ -637,11 +493,8 @@ If needed, I will send screenshots of the selected item(s) from the website.`;
           <input type="number" class="quantity" min="1" max="10" value="1" ${out?"disabled":""}>
 
           <div class="btnRow">
-            <button class="order-btn secondary ${out?"disabled":""}" type="button" data-action="addcart">
+            <button class="btn btn-cart ${out?"disabled":""}" type="button" data-action="addcart">
               ${out ? "Out of Stock" : "Add to Cart"}
-            </button>
-            <button class="order-btn ${out?"disabled":""}" type="button" data-action="ordernow">
-              ${out ? "Out of Stock" : "Order Now"}
             </button>
           </div>
         </div>
@@ -653,7 +506,7 @@ If needed, I will send screenshots of the selected item(s) from the website.`;
     const base = Number(card.dataset.base||0);
     const discOn = card.dataset.disc === "1";
     const final = discOn ? discounted(base) : base;
-    return { base, discOn, final };
+    return { discOn, final };
   }
 
   function wireActions(){
@@ -666,36 +519,22 @@ If needed, I will send screenshots of the selected item(s) from the website.`;
       const qtyEl = card.querySelector(".quantity");
       const img = (card.dataset.img || "home.jpg").trim();
 
-      const { discOn, final } = getUnitPrice(card);
-      const priceText = discOn ? `${money(final)} (${DISCOUNT_PERCENT}% OFF)` : `${money(final)}`;
+      const { final } = getUnitPrice(card);
 
-      card.querySelectorAll("button[data-action]").forEach(btn=>{
-        btn.addEventListener("click", ()=>{
-          const action = btn.getAttribute("data-action");
-          const size = sizeEl.value;
-          const qty = Number(qtyEl.value || 1);
+      const addBtn = card.querySelector("button[data-action='addcart']");
+      addBtn.addEventListener("click", ()=>{
+        const size = sizeEl.value;
+        const qty = Number(qtyEl.value || 1);
 
-          if(action === "addcart"){
-            addToCart({
-              name,
-              size,
-              qty,
-              unitPrice: final,
-              priceText,
-              imageUrl: img
-            });
-            openCart();
-          }
-
-          if(action === "ordernow"){
-            openOrderModalForSingle({
-              name,
-              size,
-              qty,
-              priceText
-            });
-          }
+        addToCart({
+          name,
+          size,
+          qty,
+          unitPrice: final,
+          imageUrl: img
         });
+
+        openCart();
       });
     });
   }
