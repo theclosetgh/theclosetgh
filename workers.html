@@ -1,294 +1,428 @@
-/**
- * THE CLOSET API (Cloudflare Worker + D1)
- * Routes:
- *  GET    /api/health
- *  POST   /api/login                 { password } -> { ok, token }
- *  GET    /api/products              -> { ok, products[] }
- *  POST   /api/products              (auth) create
- *  PUT    /api/products/:id          (auth) update
- *  DELETE /api/products/:id          (auth) delete
- *
- * Bindings required:
- *  - D1 Database binding name: DB
- *  - Secret: ADMIN_PASSWORD
- *  - Secret: SESSION_SECRET
- */
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>THE CLOSET – Workers</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
 
-export default {
-  async fetch(request, env) {
-    const url = new URL(request.url);
+<style>
+  :root{
+    --bg:#f5f5f5;
+    --card:#fff;
+    --text:#111;
+    --muted:#666;
+    --line:#eee;
+    --shadow:0 8px 22px rgba(0,0,0,.08);
+    --brand:#000;
+    --danger:#b00020;
+    --ok:#0b6b2a;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Arial,sans-serif;background:var(--bg);padding:20px;color:var(--text)}
+  .wrap{max-width:1100px;margin:0 auto}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  h1{margin:0;font-size:1.3rem}
+  a{color:var(--brand);font-weight:900;text-decoration:none}
+  a:hover{text-decoration:underline}
+  .card{background:var(--card);border-radius:14px;padding:18px;box-shadow:var(--shadow);margin-bottom:16px;border:1px solid rgba(0,0,0,.06)}
+  label{font-weight:900;margin-top:10px;display:block}
+  input,button,select{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:10px;font-size:15px}
+  button{background:var(--brand);color:#fff;cursor:pointer;font-weight:900}
+  button:hover{opacity:.92}
+  button:disabled{opacity:.65;cursor:not-allowed}
+  .danger{background:var(--danger)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:900px){.row{grid-template-columns:1fr}}
 
-    // ---- CORS (tighten later to only your domains) ----
-    const corsHeaders = {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+  th{font-size:.92rem}
+  .tiny{font-size:.9rem;color:var(--muted);line-height:1.4}
+  .pill{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:900;font-size:.82rem}
+  .pill.on{background:#e9fff1;color:var(--ok);border:1px solid #bfeccc}
+  .pill.off{background:#fff4f4;color:#8a0f0f;border:1px solid #f0c0c0}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .btnSmall{width:auto;padding:8px 10px;border-radius:10px}
+  .topActions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .hide{display:none !important}
+  .hr{height:1px;background:var(--line);margin:14px 0}
+
+  .toast{
+    position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+    background:#111;color:#fff;padding:10px 14px;border-radius:999px;
+    font-weight:900;font-size:.9rem;opacity:0;pointer-events:none;
+    transition:opacity .18s ease, transform .18s ease;
+    z-index:99999;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+</style>
+</head>
+
+<body>
+<script>
+  // STEALTH MODE: Only allow access via ?admin=1
+  const params = new URLSearchParams(location.search);
+  const isAdminLink = params.get("admin") === "1";
+  if (!isAdminLink) location.replace("/#home");
+</script>
+
+<div class="wrap">
+  <header>
+    <h1>Workers – Manage Products</h1>
+    <div class="topActions">
+      <a href="/index.html">← Back to Shop</a>
+      <button id="logoutBtn" class="btnSmall danger hide" type="button">Log out</button>
+    </div>
+  </header>
+
+  <!-- LOGIN -->
+  <div class="card" id="loginCard">
+    <h2 style="margin:0 0 8px;">Worker Login</h2>
+    <p class="tiny">Authorized staff only.</p>
+
+    <form id="loginForm">
+      <label>Admin Password</label>
+      <input type="password" id="loginPass" placeholder="Enter admin password" required>
+      <button type="submit" id="loginBtn">Sign in</button>
+      <p class="tiny" style="margin-top:10px;">
+        If login fails, confirm Cloudflare Worker secrets: <b>ADMIN_PASSWORD</b> and <b>SESSION_SECRET</b>.
+      </p>
+    </form>
+  </div>
+
+  <!-- MAIN UI -->
+  <div id="workersUI" class="hide">
+
+    <div class="card">
+      <h2 style="margin:0 0 10px;">Add New Product</h2>
+
+      <form id="productForm">
+        <div class="row">
+          <div>
+            <label>Product Name</label>
+            <input type="text" id="name" required>
+          </div>
+          <div>
+            <label>Price (GHC)</label>
+            <input type="number" id="price" min="1" required>
+          </div>
+        </div>
+
+        <label>Image URL</label>
+        <input type="url" id="imageUrl" placeholder="https://..." required>
+        <p class="tiny">Tip: Upload your image to Cloudinary (or any host) and paste the direct image URL here.</p>
+
+        <div class="row">
+          <div>
+            <label>Sizes (comma separated)</label>
+            <input type="text" id="sizes" placeholder="M,L,XL" required>
+          </div>
+          <div>
+            <label>Discount Percent (0–90)</label>
+            <input type="number" id="discountPercent" min="0" max="90" value="0">
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>
+              <input type="checkbox" id="discountEnabled" style="width:auto; transform:scale(1.2); margin-right:8px;">
+              Enable discount
+            </label>
+            <p class="tiny">If enabled, the shop will show old price + discounted price.</p>
+          </div>
+          <div>
+            <label>
+              <input type="checkbox" id="outOfStock" style="width:auto; transform:scale(1.2); margin-right:8px;">
+              Mark out of stock
+            </label>
+            <p class="tiny">Out of stock items cannot be added to cart.</p>
+          </div>
+        </div>
+
+        <button type="submit" id="submitBtn">Add Product</button>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 10px;">Current Products</h2>
+      <p class="tiny" id="apiHint" style="margin:0 0 10px;"></p>
+
+      <div style="overflow:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Preview</th>
+              <th>Name</th>
+              <th>Price</th>
+              <th>Discount</th>
+              <th>Stock</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="list"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="toast" id="toast">Done</div>
+
+<script>
+  // ===========================
+  // CONFIG — SET YOUR API URL
+  // ===========================
+  const API_BASE = "https://the-closet-api.edriatebi2.workers.dev"; // <-- change if needed
+
+  // Token key
+  const TOKEN_KEY = "thecloset_admin_token_v1";
+
+  // UI elements
+  const loginCard = document.getElementById("loginCard");
+  const workersUI = document.getElementById("workersUI");
+  const loginForm = document.getElementById("loginForm");
+  const loginBtn = document.getElementById("loginBtn");
+  const logoutBtn = document.getElementById("logoutBtn");
+
+  const productForm = document.getElementById("productForm");
+  const submitBtn = document.getElementById("submitBtn");
+  const list = document.getElementById("list");
+  const apiHint = document.getElementById("apiHint");
+  const toastEl = document.getElementById("toast");
+
+  apiHint.textContent = `API: ${API_BASE}`;
+
+  function showToast(text){
+    toastEl.textContent = text || "Done";
+    toastEl.classList.add("show");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=>toastEl.classList.remove("show"), 1200);
+  }
+
+  function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
+  function setToken(t){ localStorage.setItem(TOKEN_KEY, t); }
+  function clearToken(){ localStorage.removeItem(TOKEN_KEY); }
+
+  function authedHeaders(){
+    const t = getToken();
+    return {
+      "Content-Type":"application/json",
+      "Authorization": "Bearer " + t
     };
+  }
 
-    if (request.method === "OPTIONS") {
-      return new Response("", { headers: corsHeaders });
+  async function api(path, opts){
+    const res = await fetch(API_BASE + path, opts);
+    const text = await res.text();
+    let data = {};
+    try{ data = JSON.parse(text); }catch(e){ data = { raw:text }; }
+    if(!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+    return data;
+  }
+
+  function setLoggedInUI(isIn){
+    if(isIn){
+      loginCard.classList.add("hide");
+      workersUI.classList.remove("hide");
+      logoutBtn.classList.remove("hide");
+    }else{
+      workersUI.classList.add("hide");
+      logoutBtn.classList.add("hide");
+      loginCard.classList.remove("hide");
+      list.innerHTML = "";
     }
+  }
 
-    const json = (obj, status = 200) =>
-      new Response(JSON.stringify(obj), {
-        status,
-        headers: { "Content-Type": "application/json", ...corsHeaders },
+  // Check session on load
+  (async function init(){
+    const t = getToken();
+    if(!t){ setLoggedInUI(false); return; }
+
+    // quick auth test: call /api/products with auth? (public anyway) -> we test by doing an auth-protected call? too heavy
+    // simplest: just show UI; if actions fail, user can login again.
+    setLoggedInUI(true);
+    await refreshList().catch(()=>{});
+  })();
+
+  // LOGIN
+  loginForm.addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    loginBtn.disabled = true;
+    loginBtn.textContent = "Signing in...";
+    try{
+      const password = document.getElementById("loginPass").value;
+      const data = await api("/api/login", {
+        method:"POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify({ password })
       });
 
-    // ---- Ensure required bindings exist ----
-    const requireEnv = () => {
-      if (!env || !env.DB) throw new Error("Missing D1 binding: DB");
-      if (!env.ADMIN_PASSWORD) throw new Error("Missing secret: ADMIN_PASSWORD");
-      if (!env.SESSION_SECRET) throw new Error("Missing secret: SESSION_SECRET");
-    };
+      if(!data.token) throw new Error("Login OK but no token returned. Update Worker /api/login to return {token}.");
+      setToken(data.token);
+      setLoggedInUI(true);
+      showToast("Logged in");
+      await refreshList();
+      loginForm.reset();
+    }catch(err){
+      alert("❌ Login failed: " + (err.message || "Try again"));
+      clearToken();
+      setLoggedInUI(false);
+    }finally{
+      loginBtn.disabled = false;
+      loginBtn.textContent = "Sign in";
+    }
+  });
 
-    // ---- HMAC token helpers (Authorization: Bearer <token>) ----
-    async function hmacSign(payload) {
-      const enc = new TextEncoder();
-      const secret = String(env.SESSION_SECRET || "");
-      const key = await crypto.subtle.importKey(
-        "raw",
-        enc.encode(secret),
-        { name: "HMAC", hash: "SHA-256" },
-        false,
-        ["sign"]
-      );
-      const sigBuf = await crypto.subtle.sign("HMAC", key, enc.encode(payload));
-      const sigBytes = new Uint8Array(sigBuf);
+  // LOGOUT
+  logoutBtn.addEventListener("click", ()=>{
+    clearToken();
+    setLoggedInUI(false);
+    showToast("Logged out");
+    location.replace("/#home");
+  });
 
-      // base64url (no padding)
-      const b64 = btoa(String.fromCharCode(...sigBytes))
-        .replaceAll("+", "-")
-        .replaceAll("/", "_")
-        .replaceAll("=", "");
-      return b64;
+  // ADD PRODUCT
+  productForm.addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    submitBtn.disabled = true;
+    submitBtn.textContent = "Saving...";
+
+    try{
+      const name = document.getElementById("name").value.trim();
+      const price = Number(document.getElementById("price").value);
+      const imageUrl = document.getElementById("imageUrl").value.trim();
+      const sizes = document.getElementById("sizes").value.split(",").map(s=>s.trim()).filter(Boolean);
+
+      const discountEnabled = document.getElementById("discountEnabled").checked;
+      const discountPercent = Number(document.getElementById("discountPercent").value || 0);
+      const outOfStock = document.getElementById("outOfStock").checked;
+
+      const payload = { name, price, imageUrl, sizes, discountEnabled, discountPercent, outOfStock };
+
+      await api("/api/products", {
+        method:"POST",
+        headers: authedHeaders(),
+        body: JSON.stringify(payload)
+      });
+
+      showToast("Product added");
+      productForm.reset();
+      await refreshList();
+    }catch(err){
+      alert("❌ Failed: " + (err.message || "Try again"));
+    }finally{
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Add Product";
+    }
+  });
+
+  // LIST PRODUCTS
+  async function refreshList(){
+    const data = await api("/api/products", { method:"GET" });
+    const products = Array.isArray(data.products) ? data.products : [];
+
+    if(products.length === 0){
+      list.innerHTML = `<tr><td colspan="6">No products yet.</td></tr>`;
+      return;
     }
 
-    async function makeToken(role, expMs) {
-      const payload = `${role}|${expMs}`;
-      const sig = await hmacSign(payload);
-      return `${payload}.${sig}`;
-    }
+    list.innerHTML = products.map(p=>{
+      const disc = p.discountEnabled ? `<span class="pill on">ON ${Math.round(p.discountPercent||0)}%</span>` : `<span class="pill off">OFF</span>`;
+      const stock = p.outOfStock ? `<span class="pill off">OUT</span>` : `<span class="pill on">IN</span>`;
+      const img = p.imageUrl ? `<img src="${escapeHtml(p.imageUrl)}" style="width:55px;height:55px;object-fit:cover;border-radius:10px;border:1px solid rgba(0,0,0,.06)">` : "";
 
-    async function verifyToken(token) {
-      if (!token) return false;
+      return `
+        <tr data-id="${escapeHtml(p.id)}">
+          <td>${img}</td>
+          <td>${escapeHtml(p.name || "")}</td>
+          <td>GHC ${escapeHtml(String(p.price ?? ""))}</td>
+          <td>${disc}</td>
+          <td>${stock}</td>
+          <td class="actions">
+            <button type="button" class="btnSmall" data-action="toggle-discount">
+              ${p.discountEnabled ? "Disable Discount" : "Enable Discount"}
+            </button>
+            <button type="button" class="btnSmall" data-action="toggle-stock">
+              ${p.outOfStock ? "Set In Stock" : "Set Out"}
+            </button>
+            <button type="button" class="btnSmall danger" data-action="delete">Delete</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
 
-      const parts = token.split(".");
-      if (parts.length !== 2) return false;
+  // ACTIONS
+  list.addEventListener("click", async (e)=>{
+    const btn = e.target.closest("button[data-action]");
+    if(!btn) return;
 
-      const payload = parts[0];
-      const sig = parts[1];
-      const expected = await hmacSign(payload);
+    const row = btn.closest("tr[data-id]");
+    const id = row?.dataset?.id;
+    if(!id) return;
 
-      if (sig !== expected) return false;
-
-      const [role, expStr] = payload.split("|");
-      const exp = Number(expStr);
-
-      if (role !== "admin") return false;
-      if (!Number.isFinite(exp) || Date.now() > exp) return false;
-
-      return true;
-    }
-
-    function getBearerToken(req) {
-      const h = req.headers.get("Authorization") || "";
-      if (!h.toLowerCase().startsWith("bearer ")) return null;
-      return h.slice(7).trim();
-    }
-
-    async function requireAuth(req) {
-      const token = getBearerToken(req);
-      return await verifyToken(token);
-    }
-
-    // ---- Routes ----
-
-    // Health
-    if (url.pathname === "/api/health") {
-      return json({ ok: true });
-    }
-
-    // Login (password only) -> returns token
-    if (url.pathname === "/api/login" && request.method === "POST") {
-      try {
-        requireEnv();
-        const body = await request.json().catch(() => ({}));
-        const pass = String(body.password || "");
-
-        if (pass !== String(env.ADMIN_PASSWORD || "")) {
-          return json({ ok: false, error: "Invalid password" }, 401);
+    try{
+      if(btn.dataset.action === "toggle-discount"){
+        const enable = confirm("Enable discount?\nOK = enable, Cancel = disable");
+        let percent = 0;
+        if(enable){
+          const v = prompt("Discount percent (0–90):", "10");
+          percent = Math.max(0, Math.min(90, Number(v || 0)));
         }
+        await api("/api/products/" + encodeURIComponent(id), {
+          method:"PUT",
+          headers: authedHeaders(),
+          body: JSON.stringify({ discountEnabled: enable, discountPercent: percent })
+        });
+        showToast("Updated");
+        await refreshList();
+        return;
+      }
 
-        const exp = Date.now() + 7 * 24 * 60 * 60 * 1000; // 7 days
-        const token = await makeToken("admin", exp);
+      if(btn.dataset.action === "toggle-stock"){
+        const out = confirm("Mark OUT OF STOCK?\nOK = OUT, Cancel = IN STOCK");
+        await api("/api/products/" + encodeURIComponent(id), {
+          method:"PUT",
+          headers: authedHeaders(),
+          body: JSON.stringify({ outOfStock: out })
+        });
+        showToast("Updated");
+        await refreshList();
+        return;
+      }
 
-        return json({ ok: true, token });
-      } catch (e) {
-        return json({ ok: false, error: e?.message || "Server error" }, 500);
+      if(btn.dataset.action === "delete"){
+        if(!confirm("Delete this product?")) return;
+        await api("/api/products/" + encodeURIComponent(id), {
+          method:"DELETE",
+          headers: authedHeaders()
+        });
+        showToast("Deleted");
+        await refreshList();
+        return;
+      }
+
+    }catch(err){
+      alert("❌ Action failed: " + (err.message || "Try again"));
+      // If unauthorized, force logout so user re-logins
+      if(String(err.message || "").toLowerCase().includes("unauthorized") || String(err.message||"").includes("401")){
+        clearToken();
+        setLoggedInUI(false);
       }
     }
+  });
 
-    // Public list
-    if (url.pathname === "/api/products" && request.method === "GET") {
-      try {
-        requireEnv();
+  function escapeHtml(str){
+    return String(str ?? "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+</script>
 
-        const r = await env.DB.prepare(
-          "SELECT * FROM products ORDER BY createdAt DESC"
-        ).all();
-
-        const results = r?.results || [];
-
-        const products = results.map((p) => ({
-          id: p.id,
-          name: p.name,
-          price: Number(p.price),
-          sizes: JSON.parse(p.sizes || "[]"),
-          imageUrl: p.imageUrl,
-          discountEnabled: !!p.discountEnabled,
-          discountPercent: Number(p.discountPercent || 0),
-          outOfStock: !!p.outOfStock,
-          createdAt: p.createdAt,
-        }));
-
-        return json({ ok: true, products });
-      } catch (e) {
-        return json({ ok: false, error: "DB error: " + (e?.message || "unknown") }, 500);
-      }
-    }
-
-    // Admin create
-    if (url.pathname === "/api/products" && request.method === "POST") {
-      try {
-        requireEnv();
-        if (!(await requireAuth(request))) {
-          return json({ ok: false, error: "Unauthorized" }, 401);
-        }
-
-        const body = await request.json().catch(() => ({}));
-        const id = crypto.randomUUID();
-
-        const name = String(body.name || "").trim();
-        const price = Math.round(Number(body.price || 0));
-        const sizes = Array.isArray(body.sizes) ? body.sizes : [];
-        const imageUrl = String(body.imageUrl || "").trim();
-
-        const discountEnabled = body.discountEnabled ? 1 : 0;
-        const discountPercent = Math.round(Number(body.discountPercent || 0));
-        const outOfStock = body.outOfStock ? 1 : 0;
-        const createdAt = new Date().toISOString();
-
-        if (!name || !imageUrl || !Number.isFinite(price) || price <= 0 || sizes.length === 0) {
-          return json({ ok: false, error: "Invalid payload" }, 400);
-        }
-
-        await env.DB.prepare(
-          `INSERT INTO products
-           (id,name,price,sizes,imageUrl,discountEnabled,discountPercent,outOfStock,createdAt)
-           VALUES (?,?,?,?,?,?,?,?,?)`
-        )
-          .bind(
-            id,
-            name,
-            price,
-            JSON.stringify(sizes),
-            imageUrl,
-            discountEnabled,
-            discountPercent,
-            outOfStock,
-            createdAt
-          )
-          .run();
-
-        return json({ ok: true, id });
-      } catch (e) {
-        return json({ ok: false, error: "DB error: " + (e?.message || "unknown") }, 500);
-      }
-    }
-
-    // Admin update
-    if (url.pathname.startsWith("/api/products/") && request.method === "PUT") {
-      try {
-        requireEnv();
-        if (!(await requireAuth(request))) {
-          return json({ ok: false, error: "Unauthorized" }, 401);
-        }
-
-        const id = decodeURIComponent(url.pathname.split("/").pop() || "");
-        if (!id) return json({ ok: false, error: "Missing id" }, 400);
-
-        const body = await request.json().catch(() => ({}));
-
-        const current = await env.DB.prepare(
-          "SELECT * FROM products WHERE id = ?"
-        )
-          .bind(id)
-          .first();
-
-        if (!current) return json({ ok: false, error: "Not found" }, 404);
-
-        const currentSizes = JSON.parse(current.sizes || "[]");
-
-        const nextName = String(body.name !== undefined ? body.name : current.name).trim();
-        const nextPrice = Math.round(Number(body.price !== undefined ? body.price : current.price));
-        const nextSizes = JSON.stringify(
-          Array.isArray(body.sizes) ? body.sizes : currentSizes
-        );
-        const nextImageUrl = String(body.imageUrl !== undefined ? body.imageUrl : current.imageUrl).trim();
-
-        const nextDiscountEnabled =
-          (body.discountEnabled !== undefined ? body.discountEnabled : current.discountEnabled) ? 1 : 0;
-
-        const nextDiscountPercent = Math.round(
-          Number(body.discountPercent !== undefined ? body.discountPercent : (current.discountPercent || 0))
-        );
-
-        const nextOutOfStock =
-          (body.outOfStock !== undefined ? body.outOfStock : current.outOfStock) ? 1 : 0;
-
-        await env.DB.prepare(
-          `UPDATE products
-           SET name=?, price=?, sizes=?, imageUrl=?, discountEnabled=?, discountPercent=?, outOfStock=?
-           WHERE id=?`
-        )
-          .bind(
-            nextName,
-            nextPrice,
-            nextSizes,
-            nextImageUrl,
-            nextDiscountEnabled,
-            nextDiscountPercent,
-            nextOutOfStock,
-            id
-          )
-          .run();
-
-        return json({ ok: true });
-      } catch (e) {
-        return json({ ok: false, error: "DB error: " + (e?.message || "unknown") }, 500);
-      }
-    }
-
-    // Admin delete
-    if (url.pathname.startsWith("/api/products/") && request.method === "DELETE") {
-      try {
-        requireEnv();
-        if (!(await requireAuth(request))) {
-          return json({ ok: false, error: "Unauthorized" }, 401);
-        }
-
-        const id = decodeURIComponent(url.pathname.split("/").pop() || "");
-        if (!id) return json({ ok: false, error: "Missing id" }, 400);
-
-        await env.DB.prepare("DELETE FROM products WHERE id=?").bind(id).run();
-        return json({ ok: true });
-      } catch (e) {
-        return json({ ok: false, error: "DB error: " + (e?.message || "unknown") }, 500);
-      }
-    }
-
-    // Fallback
-    return json({ ok: false, error: "Not found" }, 404);
-  },
-};
+</body>
+</html>
