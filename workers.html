@@ -1,10 +1,150 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>THE CLOSET – Workers</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  body{font-family:Arial,sans-serif;background:#f5f5f5;padding:20px;color:#111}
+  .wrap{max-width:1000px;margin:0 auto}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  h1{margin:0}
+  a{color:#000;font-weight:bold}
+  .card{background:#fff;border-radius:12px;padding:18px;box-shadow:0 5px 15px rgba(0,0,0,.08);margin-bottom:16px}
+  label{font-weight:bold;margin-top:10px;display:block}
+  input,button{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:8px;font-size:15px}
+  button{background:#000;color:#fff;cursor:pointer}
+  button:hover{opacity:.92}
+  button:disabled{opacity:.65;cursor:not-allowed}
+  .danger{background:#b00020}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:800px){.row{grid-template-columns:1fr}}
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px;border-bottom:1px solid #eee;text-align:left;vertical-align:middle}
+  .tiny{font-size:.9rem;color:#666}
+  .pill{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:bold;font-size:.85rem}
+  .pill.on{background:#e9fff1;color:#0b6b2a;border:1px solid #bfeccc}
+  .pill.off{background:#fff4f4;color:#8a0f0f;border:1px solid #f0c0c0}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .btnSmall{width:auto;padding:8px 10px}
+  .topActions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .hide{display:none}
+  .err{background:#fff1f1;border:1px solid #ffb3b3;color:#7a0012;padding:10px;border-radius:10px;margin-bottom:12px;white-space:pre-wrap}
+  .ok{background:#f0fff5;border:1px solid #bfeccc;color:#0b6b2a;padding:10px;border-radius:10px;margin-bottom:12px;white-space:pre-wrap}
+</style>
+</head>
+
+<body>
+<script>
+  // Stealth: must have ?admin=1
+  const params = new URLSearchParams(location.search);
+  if (params.get("admin") !== "1") location.replace("/#home");
+</script>
+
+<div class="wrap">
+  <header>
+    <h1>Workers – Manage Products</h1>
+    <div class="topActions">
+      <a href="/index.html">← Back to Shop</a>
+      <button id="logoutBtn" class="btnSmall danger hide" type="button">Log out</button>
+    </div>
+  </header>
+
+  <div id="statusBox" class="hide"></div>
+
+  <div class="card" id="loginCard">
+    <h2 style="margin:0 0 10px;">Worker Login</h2>
+    <p class="tiny">Authorized staff only.</p>
+    <form id="loginForm">
+      <label>Password</label>
+      <input type="password" id="loginPass" placeholder="********" required>
+      <button type="submit" id="loginBtn">Sign in</button>
+    </form>
+  </div>
+
+  <div id="workersUI" class="hide">
+    <div class="card">
+      <h2 style="margin:0 0 10px;">Add New Product</h2>
+      <form id="productForm">
+        <div class="row">
+          <div>
+            <label>Product Name</label>
+            <input type="text" id="name" required>
+          </div>
+          <div>
+            <label>Price (GHC)</label>
+            <input type="number" id="price" min="1" required>
+          </div>
+        </div>
+
+        <label>Upload Product Image</label>
+        <input type="file" id="imageFile" accept="image/*" required>
+
+        <label>Sizes (comma separated)</label>
+        <input type="text" id="sizes" placeholder="M,L,XL" required>
+
+        <div class="row">
+          <div>
+            <label>Discount</label>
+            <input type="checkbox" id="discountEnabled" style="width:auto; transform:scale(1.2); margin-top:10px;">
+            <span class="tiny"> Enable discount</span>
+          </div>
+          <div>
+            <label>Stock</label>
+            <input type="checkbox" id="outOfStock" style="width:auto; transform:scale(1.2); margin-top:10px;">
+            <span class="tiny"> Mark out of stock</span>
+          </div>
+        </div>
+
+        <button type="submit" id="submitBtn">Upload & Add Product</button>
+        <p class="tiny" style="margin-top:10px;">
+          Cloudinary preset must be UNSIGNED and named <b>the_closet</b>.
+        </p>
+      </form>
+    </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 10px;">Current Products</h2>
+      <div style="overflow:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th>Preview</th>
+              <th>Name</th>
+              <th>Price</th>
+              <th>Discount</th>
+              <th>Stock</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="list"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+  // On-screen error display
+  const statusBox = document.getElementById("statusBox");
+  function showErr(msg){
+    statusBox.className = "err";
+    statusBox.textContent = "ERROR:\n" + msg;
+    statusBox.classList.remove("hide");
+  }
+  function showOk(msg){
+    statusBox.className = "ok";
+    statusBox.textContent = msg;
+    statusBox.classList.remove("hide");
+  }
+  window.addEventListener("error", (e)=> showErr((e && e.message ? e.message : "Unknown error") + "\n" + (e && e.filename ? e.filename : "")));
+  window.addEventListener("unhandledrejection", (e)=> showErr(e && e.reason ? (e.reason.message || String(e.reason)) : "Promise error"));
+</script>
+
 <script type="module">
   const API_BASE = "https://the-closet-api.edriatebi2.workers.dev";
-
-  // Cloudinary
   const CLOUD_NAME = "dwpwtanc8";
   const UPLOAD_PRESET = "the_closet";
-
   const TOKEN_KEY = "thecloset_admin_token";
 
   // UI
@@ -13,33 +153,23 @@
   const loginBtn = document.getElementById("loginBtn");
   const logoutBtn = document.getElementById("logoutBtn");
   const workersUI = document.getElementById("workersUI");
-
   const productForm = document.getElementById("productForm");
   const submitBtn = document.getElementById("submitBtn");
   const list = document.getElementById("list");
 
-  function getToken() {
-    return localStorage.getItem(TOKEN_KEY) || "";
-  }
-  function setToken(t) {
-    if (!t) localStorage.removeItem(TOKEN_KEY);
-    else localStorage.setItem(TOKEN_KEY, t);
-  }
+  function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
+  function setToken(t){ if(!t) localStorage.removeItem(TOKEN_KEY); else localStorage.setItem(TOKEN_KEY,t); }
 
-  function api(path, opts = {}) {
-    const headers = Object.assign(
-      { "Content-Type": "application/json" },
-      opts.headers || {}
-    );
-
+  function api(path, opts){
+    const o = opts || {};
+    const headers = Object.assign({ "Content-Type":"application/json" }, o.headers || {});
     const t = getToken();
-    if (t) headers["Authorization"] = "Bearer " + t;
-
-    return fetch(API_BASE + path, Object.assign({}, opts, { headers }));
+    if(t) headers["Authorization"] = "Bearer " + t;
+    return fetch(API_BASE + path, Object.assign({}, o, { headers }));
   }
 
-  function showAuthed(isAuthed) {
-    if (!isAuthed) {
+  function showAuthed(isAuthed){
+    if(!isAuthed){
       workersUI.classList.add("hide");
       logoutBtn.classList.add("hide");
       loginCard.classList.remove("hide");
@@ -60,30 +190,25 @@
       .replaceAll("'","&#039;");
   }
 
-  // Cloudinary upload
   async function uploadToCloudinary(file){
     const url = "https://api.cloudinary.com/v1_1/" + CLOUD_NAME + "/image/upload";
     const fd = new FormData();
     fd.append("file", file);
     fd.append("upload_preset", UPLOAD_PRESET);
     fd.append("folder", "the-closet");
-
     const res = await fetch(url, { method:"POST", body: fd });
     const data = await res.json();
-    if (!res.ok) throw new Error((data && data.error && data.error.message) ? data.error.message : "Cloudinary upload failed");
+    if(!res.ok) throw new Error((data && data.error && data.error.message) ? data.error.message : "Cloudinary upload failed");
     return data.secure_url;
   }
 
   async function loadProducts(){
     const res = await fetch(API_BASE + "/api/products");
-    const data = await res.json().catch(()=>({ ok:false }));
-    if (!res.ok || !data.ok) {
-      list.innerHTML = "<tr><td colspan='6'>❌ Failed to load products</td></tr>";
-      return;
-    }
+    const data = await res.json().catch(()=>({}));
+    if(!res.ok || !data.ok) throw new Error(data.error || "Failed to load products");
 
     const products = data.products || [];
-    if (!products.length) {
+    if(!products.length){
       list.innerHTML = "<tr><td colspan='6'>No products yet.</td></tr>";
       return;
     }
@@ -107,164 +232,148 @@
         "</tr>"
       );
     }).join("");
+
+    showOk("Loaded " + products.length + " products.");
   }
 
-  // Login (password only)
-  loginForm.addEventListener("submit", async (e) => {
+  loginForm.addEventListener("submit", async (e)=>{
     e.preventDefault();
     loginBtn.disabled = true;
     loginBtn.textContent = "Signing in...";
-
-    try {
+    try{
       const pass = document.getElementById("loginPass").value;
-
-      const res = await api("/api/login", {
-        method: "POST",
-        body: JSON.stringify({ password: pass })
-      });
+      const res = await api("/api/login", { method:"POST", body: JSON.stringify({ password: pass }) });
       const data = await res.json().catch(()=>({}));
-
-      if (!res.ok || !data.ok || !data.token) {
-        throw new Error(data.error || "Login failed");
-      }
-
+      if(!res.ok || !data.ok || !data.token) throw new Error(data.error || "Login failed");
       setToken(data.token);
       showAuthed(true);
       await loadProducts();
-    } catch (err) {
-      alert("❌ Login failed: " + (err && err.message ? err.message : "Try again"));
+    }catch(err){
       setToken("");
       showAuthed(false);
-    } finally {
+      showErr(err && err.message ? err.message : "Login error");
+    }finally{
       loginBtn.disabled = false;
       loginBtn.textContent = "Sign in";
     }
   });
 
-  // Logout
-  logoutBtn.addEventListener("click", async () => {
+  logoutBtn.addEventListener("click", ()=>{
     setToken("");
     showAuthed(false);
     location.replace("/#home");
   });
 
-  // Add product
   productForm.addEventListener("submit", async (e)=>{
     e.preventDefault();
-
     const name = document.getElementById("name").value.trim();
     const price = Number(document.getElementById("price").value);
     const sizes = document.getElementById("sizes").value.split(",").map(s=>s.trim()).filter(Boolean);
     const discountEnabled = document.getElementById("discountEnabled").checked;
     const outOfStock = document.getElementById("outOfStock").checked;
 
-    // Ask discount percent if enabled
     let discountPercent = 0;
-    if (discountEnabled) {
+    if(discountEnabled){
       const p = prompt("Discount percent? (0 - 90)", "10");
       discountPercent = Math.max(0, Math.min(90, Math.round(Number(p || 0))));
     }
 
     const file = document.getElementById("imageFile").files[0];
-    if (!file) { alert("Upload an image."); return; }
+    if(!file) return showErr("Upload an image.");
 
     submitBtn.disabled = true;
     submitBtn.textContent = "Uploading image...";
-
-    try {
+    try{
       const imageUrl = await uploadToCloudinary(file);
       submitBtn.textContent = "Saving product...";
 
       const res = await api("/api/products", {
-        method: "POST",
-        body: JSON.stringify({
-          name: name,
-          price: price,
-          sizes: sizes,
-          imageUrl: imageUrl,
-          discountEnabled: discountEnabled,
-          discountPercent: discountPercent,
-          outOfStock: outOfStock
-        })
+        method:"POST",
+        body: JSON.stringify({ name, price, sizes, imageUrl, discountEnabled, discountPercent, outOfStock })
       });
-
       const data = await res.json().catch(()=>({}));
-      if (!res.ok || !data.ok) throw new Error(data.error || "Failed to save");
+      if(!res.ok || !data.ok) throw new Error(data.error || "Failed to save");
 
       alert("✅ Product added!");
       productForm.reset();
       await loadProducts();
-    } catch (err) {
-      alert("❌ Failed: " + (err && err.message ? err.message : "Try again"));
-    } finally {
+    }catch(err){
+      showErr(err && err.message ? err.message : "Save error");
+    }finally{
       submitBtn.disabled = false;
       submitBtn.textContent = "Upload & Add Product";
     }
   });
 
-  // Row actions
   list.addEventListener("click", async (e)=>{
     const btn = e.target.closest("button[data-action]");
-    if (!btn) return;
-
+    if(!btn) return;
     const row = btn.closest("tr[data-id]");
     const id = row ? row.getAttribute("data-id") : "";
-    if (!id) return;
+    if(!id) return;
 
-    try {
-      if (btn.dataset.action === "set-discount") {
+    try{
+      if(btn.dataset.action==="set-discount"){
         const enable = confirm("Set DISCOUNT to ON?\nOK = ON, Cancel = OFF");
         let pct = 0;
-        if (enable) {
+        if(enable){
           const p = prompt("Discount percent? (0 - 90)", "10");
           pct = Math.max(0, Math.min(90, Math.round(Number(p || 0))));
         }
-
         const res = await api("/api/products/" + encodeURIComponent(id), {
-          method: "PUT",
+          method:"PUT",
           body: JSON.stringify({ discountEnabled: enable, discountPercent: pct })
         });
         const data = await res.json().catch(()=>({}));
-        if (!res.ok || !data.ok) throw new Error(data.error || "Action failed");
+        if(!res.ok || !data.ok) throw new Error(data.error || "Action failed");
         await loadProducts();
         return;
       }
 
-      if (btn.dataset.action === "set-stock") {
+      if(btn.dataset.action==="set-stock"){
         const setOut = confirm("Mark as OUT OF STOCK?\nOK = OUT, Cancel = IN STOCK");
-
         const res = await api("/api/products/" + encodeURIComponent(id), {
-          method: "PUT",
+          method:"PUT",
           body: JSON.stringify({ outOfStock: setOut })
         });
         const data = await res.json().catch(()=>({}));
-        if (!res.ok || !data.ok) throw new Error(data.error || "Action failed");
+        if(!res.ok || !data.ok) throw new Error(data.error || "Action failed");
         await loadProducts();
         return;
       }
 
-      if (btn.dataset.action === "delete") {
-        if (!confirm("Delete this product?")) return;
-
-        const res = await api("/api/products/" + encodeURIComponent(id), { method: "DELETE" });
+      if(btn.dataset.action==="delete"){
+        if(!confirm("Delete this product?")) return;
+        const res = await api("/api/products/" + encodeURIComponent(id), { method:"DELETE" });
         const data = await res.json().catch(()=>({}));
-        if (!res.ok || !data.ok) throw new Error(data.error || "Delete failed");
-
+        if(!res.ok || !data.ok) throw new Error(data.error || "Delete failed");
         alert("✅ Deleted");
         await loadProducts();
       }
-    } catch (err) {
-      alert("❌ Action failed: " + (err && err.message ? err.message : "Try again"));
+    }catch(err){
+      showErr(err && err.message ? err.message : "Action error");
     }
   });
 
-  // Auto-show login or load if token exists
-  (async function init(){
-    if (getToken()) {
-      showAuthed(true);
-      await loadProducts();
-    } else {
+  // Init
+  (async function(){
+    try{
+      // quick reachability check
+      const h = await fetch(API_BASE + "/api/health");
+      if(!h.ok) throw new Error("API health failed");
+      showOk("API reachable. Please login.");
+      if(getToken()){
+        showAuthed(true);
+        await loadProducts();
+      }else{
+        showAuthed(false);
+      }
+    }catch(err){
+      showErr("Cannot reach API: " + (err && err.message ? err.message : "unknown"));
       showAuthed(false);
     }
   })();
 </script>
+
+</body>
+</html>
