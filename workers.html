@@ -27,6 +27,7 @@
   .card{background:var(--card);border-radius:14px;padding:18px;box-shadow:var(--shadow);margin-bottom:16px;border:1px solid rgba(0,0,0,.06)}
   label{font-weight:900;margin-top:10px;display:block}
   input,button,select{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:10px;font-size:15px}
+  input[type="file"]{padding:9px}
   button{background:var(--brand);color:#fff;cursor:pointer;font-weight:900}
   button:hover{opacity:.92}
   button:disabled{opacity:.65;cursor:not-allowed}
@@ -46,6 +47,21 @@
   .topActions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .hide{display:none !important}
   .hr{height:1px;background:var(--line);margin:14px 0}
+
+  .previewBox{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    margin-top:10px;
+  }
+  .previewImg{
+    width:86px;height:86px;border-radius:14px;border:1px solid rgba(0,0,0,.08);
+    background:#fff;object-fit:cover;display:none;
+  }
+  .metaPill{
+    display:inline-flex;align-items:center;gap:8px;
+    font-weight:900;font-size:.85rem;color:#111;
+    padding:6px 10px;border-radius:999px;border:1px solid rgba(0,0,0,.1);
+    background:#fff;
+  }
 
   .toast{
     position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
@@ -108,9 +124,13 @@
           </div>
         </div>
 
-        <label>Image URL</label>
-        <input type="url" id="imageUrl" placeholder="https://..." required>
-        <p class="tiny">Tip: Upload your image to Cloudinary (or any host) and paste the direct image URL here.</p>
+        <label>Upload Product Image (from device)</label>
+        <input type="file" id="imageFile" accept="image/*" required>
+        <div class="previewBox">
+          <img id="previewImg" class="previewImg" alt="Preview">
+          <span id="fileMeta" class="metaPill">No file selected</span>
+        </div>
+        <p class="tiny">This uploads to Cloudinary automatically and saves the image URL.</p>
 
         <div class="row">
           <div>
@@ -129,7 +149,7 @@
               <input type="checkbox" id="discountEnabled" style="width:auto; transform:scale(1.2); margin-right:8px;">
               Enable discount
             </label>
-            <p class="tiny">If enabled, the shop will show old price + discounted price.</p>
+            <p class="tiny">If enabled, the shop shows old price + discounted price.</p>
           </div>
           <div>
             <label>
@@ -140,7 +160,12 @@
           </div>
         </div>
 
-        <button type="submit" id="submitBtn">Add Product</button>
+        <button type="submit" id="submitBtn">Upload & Add Product</button>
+
+        <div class="hr"></div>
+        <p class="tiny" style="margin:0">
+          Cloudinary must have an <b>UNSIGNED</b> upload preset named <b>the_closet</b>.
+        </p>
       </form>
     </div>
 
@@ -174,7 +199,13 @@
   // ===========================
   // CONFIG — SET YOUR API URL
   // ===========================
-  const API_BASE = "https://the-closet-api.edriatebi2.workers.dev"; // <-- change if needed
+  const API_BASE = "https://the-closet-api.edriatebi2.workers.dev";
+
+  // ===========================
+  // CLOUDINARY CONFIG
+  // ===========================
+  const CLOUD_NAME = "dwpwtanc8";
+  const UPLOAD_PRESET = "the_closet"; // MUST be unsigned preset
 
   // Token key
   const TOKEN_KEY = "thecloset_admin_token_v1";
@@ -191,6 +222,10 @@
   const list = document.getElementById("list");
   const apiHint = document.getElementById("apiHint");
   const toastEl = document.getElementById("toast");
+
+  const imageFileEl = document.getElementById("imageFile");
+  const previewImg = document.getElementById("previewImg");
+  const fileMeta = document.getElementById("fileMeta");
 
   apiHint.textContent = `API: ${API_BASE}`;
 
@@ -235,18 +270,44 @@
     }
   }
 
-  // Check session on load
+  // ---------- Preview selected image ----------
+  imageFileEl.addEventListener("change", ()=>{
+    const f = imageFileEl.files?.[0];
+    if(!f){
+      previewImg.style.display = "none";
+      fileMeta.textContent = "No file selected";
+      return;
+    }
+    const mb = (f.size / (1024*1024)).toFixed(2);
+    fileMeta.textContent = `${f.name} • ${mb}MB`;
+    previewImg.src = URL.createObjectURL(f);
+    previewImg.style.display = "block";
+  });
+
+  // ---------- Cloudinary upload ----------
+  async function uploadToCloudinary(file){
+    const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("upload_preset", UPLOAD_PRESET);
+    fd.append("folder", "the-closet");
+
+    const res = await fetch(url, { method:"POST", body: fd });
+    const data = await res.json().catch(()=> ({}));
+    if(!res.ok) throw new Error(data?.error?.message || "Cloudinary upload failed");
+    if(!data.secure_url) throw new Error("No secure_url returned from Cloudinary");
+    return data.secure_url;
+  }
+
+  // ---------- Check session on load ----------
   (async function init(){
     const t = getToken();
     if(!t){ setLoggedInUI(false); return; }
-
-    // quick auth test: call /api/products with auth? (public anyway) -> we test by doing an auth-protected call? too heavy
-    // simplest: just show UI; if actions fail, user can login again.
     setLoggedInUI(true);
     await refreshList().catch(()=>{});
   })();
 
-  // LOGIN
+  // ---------- LOGIN ----------
   loginForm.addEventListener("submit", async (e)=>{
     e.preventDefault();
     loginBtn.disabled = true;
@@ -259,7 +320,7 @@
         body: JSON.stringify({ password })
       });
 
-      if(!data.token) throw new Error("Login OK but no token returned. Update Worker /api/login to return {token}.");
+      if(!data.token) throw new Error("Login OK but no token returned.");
       setToken(data.token);
       setLoggedInUI(true);
       showToast("Logged in");
@@ -275,7 +336,7 @@
     }
   });
 
-  // LOGOUT
+  // ---------- LOGOUT ----------
   logoutBtn.addEventListener("click", ()=>{
     clearToken();
     setLoggedInUI(false);
@@ -283,22 +344,30 @@
     location.replace("/#home");
   });
 
-  // ADD PRODUCT
+  // ---------- ADD PRODUCT ----------
   productForm.addEventListener("submit", async (e)=>{
     e.preventDefault();
     submitBtn.disabled = true;
-    submitBtn.textContent = "Saving...";
 
     try{
       const name = document.getElementById("name").value.trim();
       const price = Number(document.getElementById("price").value);
-      const imageUrl = document.getElementById("imageUrl").value.trim();
       const sizes = document.getElementById("sizes").value.split(",").map(s=>s.trim()).filter(Boolean);
 
       const discountEnabled = document.getElementById("discountEnabled").checked;
       const discountPercent = Number(document.getElementById("discountPercent").value || 0);
       const outOfStock = document.getElementById("outOfStock").checked;
 
+      const file = document.getElementById("imageFile").files?.[0];
+      if(!file) throw new Error("Choose an image file.");
+
+      // (Optional) basic size guard
+      if(file.size > 8 * 1024 * 1024) throw new Error("Image too large. Max 8MB.");
+
+      submitBtn.textContent = "Uploading image...";
+      const imageUrl = await uploadToCloudinary(file);
+
+      submitBtn.textContent = "Saving product...";
       const payload = { name, price, imageUrl, sizes, discountEnabled, discountPercent, outOfStock };
 
       await api("/api/products", {
@@ -309,16 +378,21 @@
 
       showToast("Product added");
       productForm.reset();
+
+      // reset preview
+      previewImg.style.display = "none";
+      fileMeta.textContent = "No file selected";
+
       await refreshList();
     }catch(err){
       alert("❌ Failed: " + (err.message || "Try again"));
     }finally{
       submitBtn.disabled = false;
-      submitBtn.textContent = "Add Product";
+      submitBtn.textContent = "Upload & Add Product";
     }
   });
 
-  // LIST PRODUCTS
+  // ---------- LIST PRODUCTS ----------
   async function refreshList(){
     const data = await api("/api/products", { method:"GET" });
     const products = Array.isArray(data.products) ? data.products : [];
@@ -329,9 +403,15 @@
     }
 
     list.innerHTML = products.map(p=>{
-      const disc = p.discountEnabled ? `<span class="pill on">ON ${Math.round(p.discountPercent||0)}%</span>` : `<span class="pill off">OFF</span>`;
-      const stock = p.outOfStock ? `<span class="pill off">OUT</span>` : `<span class="pill on">IN</span>`;
-      const img = p.imageUrl ? `<img src="${escapeHtml(p.imageUrl)}" style="width:55px;height:55px;object-fit:cover;border-radius:10px;border:1px solid rgba(0,0,0,.06)">` : "";
+      const disc = p.discountEnabled
+        ? `<span class="pill on">ON ${Math.round(p.discountPercent||0)}%</span>`
+        : `<span class="pill off">OFF</span>`;
+      const stock = p.outOfStock
+        ? `<span class="pill off">OUT</span>`
+        : `<span class="pill on">IN</span>`;
+      const img = p.imageUrl
+        ? `<img src="${escapeHtml(p.imageUrl)}" style="width:55px;height:55px;object-fit:cover;border-radius:10px;border:1px solid rgba(0,0,0,.06)">`
+        : "";
 
       return `
         <tr data-id="${escapeHtml(p.id)}">
@@ -354,7 +434,7 @@
     }).join("");
   }
 
-  // ACTIONS
+  // ---------- ACTIONS ----------
   list.addEventListener("click", async (e)=>{
     const btn = e.target.closest("button[data-action]");
     if(!btn) return;
@@ -406,8 +486,8 @@
 
     }catch(err){
       alert("❌ Action failed: " + (err.message || "Try again"));
-      // If unauthorized, force logout so user re-logins
-      if(String(err.message || "").toLowerCase().includes("unauthorized") || String(err.message||"").includes("401")){
+      const msg = String(err.message || "").toLowerCase();
+      if(msg.includes("unauthorized") || msg.includes("401")){
         clearToken();
         setLoggedInUI(false);
       }
