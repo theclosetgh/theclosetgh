@@ -71,6 +71,29 @@
     z-index:99999;
   }
   .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+
+  /* ---------- Modal ---------- */
+  .modalOverlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.45);
+    display:none; align-items:center; justify-content:center;
+    padding:16px; z-index:9999;
+  }
+  .modalOverlay.show{display:flex}
+  .modal{
+    width:min(720px, 100%);
+    background:#fff; border-radius:16px; box-shadow:var(--shadow);
+    border:1px solid rgba(0,0,0,.08); overflow:hidden;
+  }
+  .modalHead{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:1px solid var(--line);
+  }
+  .modalHead h3{margin:0; font-size:1.05rem}
+  .modalBody{padding:16px}
+  .modalFoot{
+    padding:14px 16px; border-top:1px solid var(--line);
+    display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;
+  }
 </style>
 </head>
 
@@ -193,6 +216,66 @@
   </div>
 </div>
 
+<!-- EDIT MODAL -->
+<div class="modalOverlay" id="editOverlay" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-label="Edit Product">
+    <div class="modalHead">
+      <h3>Edit Product</h3>
+      <button type="button" id="closeEdit" class="btnSmall danger" style="background:#111">✕</button>
+    </div>
+    <div class="modalBody">
+      <p class="tiny" id="editIdHint" style="margin:0 0 10px;"></p>
+
+      <div class="row">
+        <div>
+          <label>Product Name</label>
+          <input type="text" id="editName" required>
+        </div>
+        <div>
+          <label>Price (GHC)</label>
+          <input type="number" id="editPrice" min="1" required>
+        </div>
+      </div>
+
+      <label>Sizes (comma separated)</label>
+      <input type="text" id="editSizes" placeholder="M,L,XL" required>
+
+      <div class="row">
+        <div>
+          <label>
+            <input type="checkbox" id="editDiscountEnabled" style="width:auto; transform:scale(1.2); margin-right:8px;">
+            Enable discount
+          </label>
+        </div>
+        <div>
+          <label>Discount Percent (0–90)</label>
+          <input type="number" id="editDiscountPercent" min="0" max="90" value="0">
+        </div>
+      </div>
+
+      <label>
+        <input type="checkbox" id="editOutOfStock" style="width:auto; transform:scale(1.2); margin-right:8px;">
+        Mark out of stock
+      </label>
+
+      <div class="hr"></div>
+
+      <label>Change Image (optional)</label>
+      <input type="file" id="editImageFile" accept="image/*">
+      <div class="previewBox">
+        <img id="editPreviewImg" class="previewImg" alt="Preview">
+        <span id="editFileMeta" class="metaPill">No new image selected</span>
+      </div>
+      <p class="tiny" style="margin:8px 0 0;">If you don’t pick a new image, the old one stays.</p>
+    </div>
+
+    <div class="modalFoot">
+      <button type="button" id="cancelEdit" class="btnSmall danger" style="background:#666">Cancel</button>
+      <button type="button" id="saveEdit" class="btnSmall">Save Changes</button>
+    </div>
+  </div>
+</div>
+
 <div class="toast" id="toast">Done</div>
 
 <script>
@@ -226,6 +309,23 @@
   const imageFileEl = document.getElementById("imageFile");
   const previewImg = document.getElementById("previewImg");
   const fileMeta = document.getElementById("fileMeta");
+
+  // Edit modal elements
+  const editOverlay = document.getElementById("editOverlay");
+  const closeEditBtn = document.getElementById("closeEdit");
+  const cancelEditBtn = document.getElementById("cancelEdit");
+  const saveEditBtn = document.getElementById("saveEdit");
+  const editIdHint = document.getElementById("editIdHint");
+
+  const editName = document.getElementById("editName");
+  const editPrice = document.getElementById("editPrice");
+  const editSizes = document.getElementById("editSizes");
+  const editDiscountEnabled = document.getElementById("editDiscountEnabled");
+  const editDiscountPercent = document.getElementById("editDiscountPercent");
+  const editOutOfStock = document.getElementById("editOutOfStock");
+  const editImageFile = document.getElementById("editImageFile");
+  const editPreviewImg = document.getElementById("editPreviewImg");
+  const editFileMeta = document.getElementById("editFileMeta");
 
   apiHint.textContent = `API: ${API_BASE}`;
 
@@ -270,7 +370,7 @@
     }
   }
 
-  // ---------- Preview selected image ----------
+  // ---------- Preview selected image (add form) ----------
   imageFileEl.addEventListener("change", ()=>{
     const f = imageFileEl.files?.[0];
     if(!f){
@@ -282,6 +382,22 @@
     fileMeta.textContent = `${f.name} • ${mb}MB`;
     previewImg.src = URL.createObjectURL(f);
     previewImg.style.display = "block";
+  });
+
+  // ---------- Preview selected image (edit modal) ----------
+  editImageFile.addEventListener("change", ()=>{
+    const f = editImageFile.files?.[0];
+    if(!f){
+      editPreviewImg.style.display = currentImageUrl ? "block" : "none";
+      editFileMeta.textContent = currentImageUrl
+        ? "Current image (pick a new file to replace)"
+        : "No new image selected";
+      return;
+    }
+    const mb = (f.size / (1024*1024)).toFixed(2);
+    editFileMeta.textContent = `${f.name} • ${mb}MB`;
+    editPreviewImg.src = URL.createObjectURL(f);
+    editPreviewImg.style.display = "block";
   });
 
   // ---------- Cloudinary upload ----------
@@ -361,7 +477,6 @@
       const file = document.getElementById("imageFile").files?.[0];
       if(!file) throw new Error("Choose an image file.");
 
-      // (Optional) basic size guard
       if(file.size > 8 * 1024 * 1024) throw new Error("Image too large. Max 8MB.");
 
       submitBtn.textContent = "Uploading image...";
@@ -393,9 +508,12 @@
   });
 
   // ---------- LIST PRODUCTS ----------
+  let lastProducts = [];
+
   async function refreshList(){
     const data = await api("/api/products", { method:"GET" });
     const products = Array.isArray(data.products) ? data.products : [];
+    lastProducts = products;
 
     if(products.length === 0){
       list.innerHTML = `<tr><td colspan="6">No products yet.</td></tr>`;
@@ -421,6 +539,7 @@
           <td>${disc}</td>
           <td>${stock}</td>
           <td class="actions">
+            <button type="button" class="btnSmall" data-action="edit">Edit</button>
             <button type="button" class="btnSmall" data-action="toggle-discount">
               ${p.discountEnabled ? "Disable Discount" : "Enable Discount"}
             </button>
@@ -434,6 +553,103 @@
     }).join("");
   }
 
+  // ---------- MODAL HELPERS ----------
+  let editingId = "";
+  let currentImageUrl = "";
+
+  function openEditModal(product){
+    editingId = product?.id || "";
+    currentImageUrl = product?.imageUrl || "";
+
+    editIdHint.textContent = editingId ? `Product ID: ${editingId}` : "";
+    editName.value = product?.name || "";
+    editPrice.value = Number(product?.price || 0) || 0;
+    editSizes.value = Array.isArray(product?.sizes) ? product.sizes.join(",") : "";
+
+    editDiscountEnabled.checked = !!product?.discountEnabled;
+    editDiscountPercent.value = Number(product?.discountPercent || 0) || 0;
+    editOutOfStock.checked = !!product?.outOfStock;
+
+    // reset edit image picker but show current image
+    editImageFile.value = "";
+    editPreviewImg.style.display = "none";
+    editFileMeta.textContent = "No new image selected";
+
+    if(currentImageUrl){
+      editPreviewImg.src = currentImageUrl;
+      editPreviewImg.style.display = "block";
+      editFileMeta.textContent = "Current image (pick a new file to replace)";
+    }
+
+    editOverlay.classList.add("show");
+    editOverlay.setAttribute("aria-hidden","false");
+  }
+
+  function closeEditModal(){
+    editOverlay.classList.remove("show");
+    editOverlay.setAttribute("aria-hidden","true");
+    editingId = "";
+    currentImageUrl = "";
+  }
+
+  closeEditBtn.addEventListener("click", closeEditModal);
+  cancelEditBtn.addEventListener("click", closeEditModal);
+  editOverlay.addEventListener("click", (e)=>{
+    if(e.target === editOverlay) closeEditModal();
+  });
+
+  // ---------- SAVE EDIT ----------
+  saveEditBtn.addEventListener("click", async ()=>{
+    if(!editingId) return;
+
+    saveEditBtn.disabled = true;
+    saveEditBtn.textContent = "Saving...";
+
+    try{
+      const name = editName.value.trim();
+      const price = Number(editPrice.value);
+      const sizes = editSizes.value.split(",").map(s=>s.trim()).filter(Boolean);
+
+      const discountEnabled = editDiscountEnabled.checked;
+      const discountPercent = Number(editDiscountPercent.value || 0);
+      const outOfStock = editOutOfStock.checked;
+
+      if(!name) throw new Error("Name required");
+      if(!Number.isFinite(price) || price <= 0) throw new Error("Price must be a number > 0");
+      if(sizes.length === 0) throw new Error("Sizes required");
+
+      let imageUrl = currentImageUrl;
+
+      const file = editImageFile.files?.[0];
+      if(file){
+        if(file.size > 8 * 1024 * 1024) throw new Error("Image too large. Max 8MB.");
+        saveEditBtn.textContent = "Uploading image...";
+        imageUrl = await uploadToCloudinary(file);
+      }
+
+      saveEditBtn.textContent = "Saving changes...";
+      await api("/api/products/" + encodeURIComponent(editingId), {
+        method:"PUT",
+        headers: authedHeaders(),
+        body: JSON.stringify({ name, price, sizes, imageUrl, discountEnabled, discountPercent, outOfStock })
+      });
+
+      showToast("Saved");
+      closeEditModal();
+      await refreshList();
+    }catch(err){
+      alert("❌ Edit failed: " + (err.message || "Try again"));
+      const msg = String(err.message || "").toLowerCase();
+      if(msg.includes("unauthorized") || msg.includes("401")){
+        clearToken();
+        setLoggedInUI(false);
+      }
+    }finally{
+      saveEditBtn.disabled = false;
+      saveEditBtn.textContent = "Save Changes";
+    }
+  });
+
   // ---------- ACTIONS ----------
   list.addEventListener("click", async (e)=>{
     const btn = e.target.closest("button[data-action]");
@@ -444,6 +660,13 @@
     if(!id) return;
 
     try{
+      if(btn.dataset.action === "edit"){
+        const p = lastProducts.find(x => String(x.id) === String(id));
+        if(!p) throw new Error("Product not found in list.");
+        openEditModal(p);
+        return;
+      }
+
       if(btn.dataset.action === "toggle-discount"){
         const enable = confirm("Enable discount?\nOK = enable, Cancel = disable");
         let percent = 0;
