@@ -245,7 +245,7 @@
 
 <script>
   /* ==========================
-     CLOUDflare API SETTINGS
+     CLOUDFLARE API SETTINGS
      ========================== */
   const API_BASE = "https://the-closet-api.edriatebi2.workers.dev";
 
@@ -290,23 +290,6 @@
 
   // Live product cache
   const productCache = new Map();
-
-  // OPTION A FIX: Only update DOM if products actually changed
-  let lastProductsSignature = "";
-  function signatureOfProducts(products){
-    return JSON.stringify(
-      (products || []).map(p => ({
-        id: p.id,
-        name: p.name,
-        price: Number(p.price||0),
-        sizes: Array.isArray(p.sizes)? p.sizes : [],
-        imageUrl: p.imageUrl,
-        discountEnabled: !!p.discountEnabled,
-        discountPercent: Number(p.discountPercent||0),
-        outOfStock: !!p.outOfStock
-      }))
-    );
-  }
 
   function getDiscountPercent(p){
     const val = Number(p.discountPercent);
@@ -551,28 +534,57 @@ Please confirm availability.`;
     });
   }
 
-  // LOAD PRODUCTS FROM WORKER (Option A fixed)
+  // ======= OPTION A FIX (FULL) =======
+  // Only update DOM if products changed, no "Loading stuck", no overlap
+  let lastProductsSignature = "";
+  let hasRenderedProducts = false;
+  let isLoadingProducts = false;
+
+  function signatureOfProducts(products){
+    return JSON.stringify(
+      (products || []).map(p => ({
+        id: p.id,
+        name: p.name,
+        price: Number(p.price||0),
+        sizes: Array.isArray(p.sizes) ? p.sizes : [],
+        imageUrl: p.imageUrl,
+        discountEnabled: !!p.discountEnabled,
+        discountPercent: Number(p.discountPercent||0),
+        outOfStock: !!p.outOfStock
+      }))
+    );
+  }
+
   async function loadProducts(){
-    grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:#666;">Loading…</p>`;
+    if(isLoadingProducts) return;
+    isLoadingProducts = true;
+
+    // show loading only on very first load
+    if(!hasRenderedProducts){
+      grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:#666;">Loading…</p>`;
+    }
+
     try{
       const data = await apiGet("/api/products");
       const products = Array.isArray(data.products) ? data.products : [];
 
-      // Signature check: if nothing changed, don't rebuild DOM
+      // compute signature BEFORE touching DOM
       const sig = signatureOfProducts(products);
-      if(sig === lastProductsSignature){
+
+      // if nothing changed & we already rendered, don't touch grid
+      if(hasRenderedProducts && sig === lastProductsSignature){
         renderCart(); setCartBadge();
         return;
       }
       lastProductsSignature = sig;
 
-      // Keep scroll position to avoid "refresh" feeling
       const y = window.scrollY;
 
       productCache.clear();
 
       if(products.length === 0){
         grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:#666;">No products yet.</p>`;
+        hasRenderedProducts = true;
         renderCart(); setCartBadge();
         window.scrollTo(0, y);
         return;
@@ -595,11 +607,17 @@ Please confirm availability.`;
       grid.innerHTML = products.map(p => cardHTML(p.id, p)).join("");
       wireActions();
 
+      hasRenderedProducts = true;
+
       renderCart(); setCartBadge();
       window.scrollTo(0, y);
     }catch(err){
-      grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:#b00020;">Failed to load products: ${escapeHtml(err.message||String(err))}</p>`;
+      if(!hasRenderedProducts){
+        grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:#b00020;">Failed to load products: ${escapeHtml(err.message||String(err))}</p>`;
+      }
       renderCart(); setCartBadge();
+    }finally{
+      isLoadingProducts = false;
     }
   }
 
@@ -608,8 +626,8 @@ Please confirm availability.`;
   setCartBadge();
   loadProducts();
 
-  // Auto refresh (now it will only re-render when products change)
-  setInterval(loadProducts, 30000); // 30s smoother than 15s
+  // Auto refresh (will re-render ONLY when products change)
+  setInterval(loadProducts, 30000);
 </script>
 </body>
 </html>
