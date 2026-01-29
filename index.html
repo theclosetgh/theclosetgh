@@ -291,6 +291,23 @@
   // Live product cache
   const productCache = new Map();
 
+  // OPTION A FIX: Only update DOM if products actually changed
+  let lastProductsSignature = "";
+  function signatureOfProducts(products){
+    return JSON.stringify(
+      (products || []).map(p => ({
+        id: p.id,
+        name: p.name,
+        price: Number(p.price||0),
+        sizes: Array.isArray(p.sizes)? p.sizes : [],
+        imageUrl: p.imageUrl,
+        discountEnabled: !!p.discountEnabled,
+        discountPercent: Number(p.discountPercent||0),
+        outOfStock: !!p.outOfStock
+      }))
+    );
+  }
+
   function getDiscountPercent(p){
     const val = Number(p.discountPercent);
     return Number.isFinite(val) && val > 0 ? val : 0;
@@ -534,18 +551,30 @@ Please confirm availability.`;
     });
   }
 
-  // LOAD PRODUCTS FROM WORKER
+  // LOAD PRODUCTS FROM WORKER (Option A fixed)
   async function loadProducts(){
     grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:#666;">Loading…</p>`;
     try{
       const data = await apiGet("/api/products");
       const products = Array.isArray(data.products) ? data.products : [];
 
+      // Signature check: if nothing changed, don't rebuild DOM
+      const sig = signatureOfProducts(products);
+      if(sig === lastProductsSignature){
+        renderCart(); setCartBadge();
+        return;
+      }
+      lastProductsSignature = sig;
+
+      // Keep scroll position to avoid "refresh" feeling
+      const y = window.scrollY;
+
       productCache.clear();
 
       if(products.length === 0){
         grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:#666;">No products yet.</p>`;
         renderCart(); setCartBadge();
+        window.scrollTo(0, y);
         return;
       }
 
@@ -565,7 +594,9 @@ Please confirm availability.`;
 
       grid.innerHTML = products.map(p => cardHTML(p.id, p)).join("");
       wireActions();
+
       renderCart(); setCartBadge();
+      window.scrollTo(0, y);
     }catch(err){
       grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:#b00020;">Failed to load products: ${escapeHtml(err.message||String(err))}</p>`;
       renderCart(); setCartBadge();
@@ -576,7 +607,9 @@ Please confirm availability.`;
   renderCart();
   setCartBadge();
   loadProducts();
-  setInterval(loadProducts, 15000); // auto refresh
+
+  // Auto refresh (now it will only re-render when products change)
+  setInterval(loadProducts, 30000); // 30s smoother than 15s
 </script>
 </body>
 </html>
