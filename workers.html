@@ -389,12 +389,15 @@
     if(!res.ok) throw new Error(data.error || ("HTTP " + res.status));
     return data;
   }
-  async function loadSections() {
+ async function loadSections() {
   const data = await api("/api/sections", { method: "GET" });
 
-  sectionSelect.innerHTML = data.sections
-    .map(s => `<option value="${s.slug}">${s.name}</option>`)
-    .join("");
+  sectionSelect.innerHTML = `
+    <option value="">— Select section —</option>
+    ${data.sections.map(s =>
+      `<option value="${s.slug}">${s.name}</option>`
+    ).join("")}
+  `;
 }
   // ---------- ADD SECTION ----------
 const sectionForm = document.getElementById("sectionForm");
@@ -479,12 +482,14 @@ sectionForm.addEventListener("submit", async (e) => {
   }
 
   // ---------- Check session on load ----------
-  (async function init(){
-    const t = getToken();
-    if(!t){ setLoggedInUI(false); return; }
-    setLoggedInUI(true);
-    await refreshList().catch(()=>{});
-  })();
+ (async function init(){
+  const t = getToken();
+  if(!t){ setLoggedInUI(false); return; }
+
+  setLoggedInUI(true);
+  await loadSections();
+  await refreshList().catch(()=>{});
+})();
 
   // ---------- LOGIN ----------
   loginForm.addEventListener("submit", async (e)=>{
@@ -763,7 +768,7 @@ editSectionSelect.value = product.section || "";
         sizes: nextSizes,
         discountEnabled: nextDiscountEnabled,
         discountPercent: nextDiscountPercent,
-        outOfStock: nextOutOfStock
+        outOfStock: nextOutOfStock,
         section: editSectionSelect.value,
       };
       if(nextImageUrl) payload.imageUrl = nextImageUrl;
