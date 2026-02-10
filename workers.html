@@ -213,6 +213,17 @@
     </div>
 
     <div class="card">
+  <h2 style="margin:0 0 10px;">Manage Sections</h2>
+
+  <form id="sectionForm">
+    <label>New Section Name</label>
+    <input type="text" id="sectionName" placeholder="e.g. Dresses" required>
+    <button type="submit">Add Section</button>
+  </form>
+
+  <p class="tiny" id="sectionsHint" style="margin-top:10px;"></p>
+</div>
+    <div class="card">
       <h2 style="margin:0 0 10px;">Current Products</h2>
       <p class="tiny" id="apiHint" style="margin:0 0 10px;"></p>
 
@@ -258,6 +269,8 @@
 
       <label>Sizes (comma separated)</label>
       <input type="text" id="editSizes" placeholder="M,L,XL">
+      <label>Section</label>
+<select id="editSectionSelect"></select>
 
       <div class="row">
         <div>
@@ -338,6 +351,7 @@
   const editName = document.getElementById("editName");
   const editPrice = document.getElementById("editPrice");
   const editSizes = document.getElementById("editSizes");
+  const editSectionSelect = document.getElementById("editSectionSelect");
   const editDiscountEnabled = document.getElementById("editDiscountEnabled");
   const editDiscountPercent = document.getElementById("editDiscountPercent");
   const editOutOfStock = document.getElementById("editOutOfStock");
@@ -382,6 +396,32 @@
     .map(s => `<option value="${s.slug}">${s.name}</option>`)
     .join("");
 }
+  // ---------- ADD SECTION ----------
+const sectionForm = document.getElementById("sectionForm");
+const sectionNameInput = document.getElementById("sectionName");
+const sectionsHint = document.getElementById("sectionsHint");
+
+sectionForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const name = sectionNameInput.value.trim();
+  if (!name) return;
+
+  try {
+    await api("/api/sections", {
+      method: "POST",
+      headers: authedHeaders(),
+      body: JSON.stringify({ name })
+    });
+
+    sectionNameInput.value = "";
+    showToast("Section added");
+
+    await loadSections(); // refresh dropdown
+  } catch (err) {
+    alert("❌ Failed to add section: " + (err.message || "Error"));
+  }
+});
   function setLoggedInUI(isIn){
     if(isIn){
       loginCard.classList.add("hide");
@@ -591,6 +631,9 @@
     editName.value = product.name || "";
     editPrice.value = Number(product.price || 0);
     editSizes.value = Array.isArray(product.sizes) ? product.sizes.join(",") : "";
+    // Load sections into edit dropdown
+editSectionSelect.innerHTML = sectionSelect.innerHTML;
+editSectionSelect.value = product.section || "";
     editDiscountEnabled.checked = !!product.discountEnabled;
     editDiscountPercent.value = Number(product.discountPercent || 0);
     editOutOfStock.checked = !!product.outOfStock;
@@ -721,6 +764,7 @@
         discountEnabled: nextDiscountEnabled,
         discountPercent: nextDiscountPercent,
         outOfStock: nextOutOfStock
+        section: editSectionSelect.value,
       };
       if(nextImageUrl) payload.imageUrl = nextImageUrl;
 
