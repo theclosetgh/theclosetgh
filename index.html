@@ -308,11 +308,20 @@ async function loadSections(){
   `;
 
   menu.querySelectorAll("button").forEach(btn => {
-btn.addEventListener("click", ()=>{
-  activeSection = btn.dataset.sec.toLowerCase();
-  applySectionFilter();
-});
- }
+    btn.addEventListener("click", ()=>{
+      const sec = btn.dataset.sec.toLowerCase();
+
+      document.querySelectorAll(".product").forEach(card => {
+        const cardSec = (card.dataset.section || "").toLowerCase();
+
+        card.style.display =
+          sec === "all" || cardSec === sec
+            ? "block"
+            : "none";
+      });
+    });
+  });
+}
   // Live product cache
   const productCache = new Map();
 
@@ -633,8 +642,7 @@ function signatureOfProducts(products){
       }
 
       grid.innerHTML = products.map(p => cardHTML(p.id, p)).join("");
-wireActions();
-applySectionFilter(); // ✅ IMPORTANT
+      wireActions();
 
       hasRenderedProducts = true;
 
