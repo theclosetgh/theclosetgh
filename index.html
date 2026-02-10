@@ -198,6 +198,7 @@
 
 <section id="shop">
   <h2>Available Tops</h2>
+ <div id="sectionMenu" class="btnRow" style="margin-bottom:25px"></div>
   <p class="hint">
     All items are online — everyone sees the same stock.<br>
     Add items to cart, then checkout on WhatsApp. Delivery (if selected) is via Yango or Bolt.
@@ -280,13 +281,39 @@
     showToast._t = setTimeout(()=> toastEl.classList.remove("show"), 1200);
   }
   async function apiGet(path){
-    const res = await fetch(API_BASE + path, { method:"GET" });
+       const res = await fetch(API_BASE + path, { method:"GET" });
     const text = await res.text();
     let data = {};
     try{ data = JSON.parse(text); }catch(e){ data = { ok:false, error:"Invalid JSON from API", raw:text }; }
     if(!res.ok) throw new Error(data.error || ("HTTP " + res.status));
     return data;
   }
+ 
+async function loadSections(){
+  const data = await apiGet("/api/sections");
+  const menu = document.getElementById("sectionMenu");
+
+  menu.innerHTML = `
+    <button class="btn btn-cart" data-sec="all">All</button>
+    ${data.sections.map(s => `
+      <button class="btn btn-cart" data-sec="${s.slug}">
+        ${s.name}
+      </button>
+    `).join("")}
+  `;
+
+  menu.querySelectorAll("button").forEach(btn => {
+    btn.addEventListener("click", ()=>{
+      const sec = btn.dataset.sec;
+      document.querySelectorAll(".product").forEach(card => {
+        card.style.display =
+          sec === "all" || card.dataset.section === sec
+            ? "block"
+            : "none";
+      });
+    });
+  });
+}
 
   // Live product cache
   const productCache = new Map();
@@ -482,7 +509,10 @@ Please confirm availability.`;
     const img = String(p.imageUrl || "home.jpg");
 
     return `
-      <div class="product" data-id="${escapeHtml(id)}" data-out="${out?1:0}">
+     <div class="product"
+     data-id="${escapeHtml(id)}"
+     data-out="${out?1:0}"
+     data-section="${escapeHtml(p.section || '')}">
         ${badge}
         <img src="${escapeHtml(img)}" alt="${escapeHtml(name)}">
         <div class="product-content">
@@ -566,7 +596,7 @@ Please confirm availability.`;
 
     try{
       const data = await apiGet("/api/products");
-      const products = Array.isArray(data.products) ? data.products : [];
+          const products = Array.isArray(data.products) ? data.products : [];
 
       // compute signature BEFORE touching DOM
       const sig = signatureOfProducts(products);
@@ -624,10 +654,11 @@ Please confirm availability.`;
   // Init
   renderCart();
   setCartBadge();
-  loadProducts();
-
+ loadSections();
+loadProducts();
   // Auto refresh (will re-render ONLY when products change)
   setInterval(loadProducts, 30000);
 </script>
 </body>
 </html>
+
