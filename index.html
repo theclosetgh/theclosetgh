@@ -576,21 +576,21 @@ Please confirm availability.`;
   let lastProductsSignature = "";
   let hasRenderedProducts = false;
   let isLoadingProducts = false;
-
-  function signatureOfProducts(products){
-    return JSON.stringify(
-      (products || []).map(p => ({
-        id: p.id,
-        name: p.name,
-        price: Number(p.price||0),
-        sizes: Array.isArray(p.sizes) ? p.sizes : [],
-        imageUrl: p.imageUrl,
-        discountEnabled: !!p.discountEnabled,
-        discountPercent: Number(p.discountPercent||0),
-        outOfStock: !!p.outOfStock
-      }))
-    );
-  }
+function signatureOfProducts(products){
+  return JSON.stringify(
+    (products || []).map(p => ({
+      id: p.id,
+      name: p.name,
+      price: Number(p.price||0),
+      sizes: Array.isArray(p.sizes) ? p.sizes : [],
+      imageUrl: p.imageUrl,
+      discountEnabled: !!p.discountEnabled,
+      discountPercent: Number(p.discountPercent||0),
+      outOfStock: !!p.outOfStock,
+      section: String(p.section || "")
+    }))
+  );
+}
 
   async function loadProducts(){
     if(isLoadingProducts) return;
@@ -668,5 +668,6 @@ loadProducts();
 </script>
 </body>
 </html>
+
 
 
