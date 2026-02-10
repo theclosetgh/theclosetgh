@@ -293,6 +293,11 @@ async function loadSections(){
   const data = await apiGet("/api/sections");
   const menu = document.getElementById("sectionMenu");
 
+  if(!data.sections || data.sections.length === 0){
+    menu.innerHTML = "";
+    return;
+  }
+
   menu.innerHTML = `
     <button class="btn btn-cart" data-sec="all">All</button>
     ${data.sections.map(s => `
@@ -304,17 +309,19 @@ async function loadSections(){
 
   menu.querySelectorAll("button").forEach(btn => {
     btn.addEventListener("click", ()=>{
-      const sec = btn.dataset.sec;
+      const sec = btn.dataset.sec.toLowerCase();
+
       document.querySelectorAll(".product").forEach(card => {
+        const cardSec = (card.dataset.section || "").toLowerCase();
+
         card.style.display =
-          sec === "all" || card.dataset.section === sec
+          sec === "all" || cardSec === sec
             ? "block"
             : "none";
       });
     });
   });
 }
-
   // Live product cache
   const productCache = new Map();
 
@@ -661,4 +668,5 @@ loadProducts();
 </script>
 </body>
 </html>
+
 
