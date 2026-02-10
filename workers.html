@@ -162,6 +162,10 @@
             <input type="number" id="price" min="1" required>
           </div>
         </div>
+        <label>Section</label>
+<select id="sectionSelect" required>
+  <option value="">Loading sections…</option>
+</select>
 
         <label>Upload Product Image (from device)</label>
         <input type="file" id="imageFile" accept="image/*" required>
@@ -316,6 +320,7 @@
 
   const productForm = document.getElementById("productForm");
   const submitBtn = document.getElementById("submitBtn");
+  const sectionSelect = document.getElementById("sectionSelect");
   const list = document.getElementById("list");
   const apiHint = document.getElementById("apiHint");
   const toastEl = document.getElementById("toast");
@@ -370,7 +375,13 @@
     if(!res.ok) throw new Error(data.error || ("HTTP " + res.status));
     return data;
   }
+  async function loadSections() {
+  const data = await api("/api/sections", { method: "GET" });
 
+  sectionSelect.innerHTML = data.sections
+    .map(s => `<option value="${s.slug}">${s.name}</option>`)
+    .join("");
+}
   function setLoggedInUI(isIn){
     if(isIn){
       loginCard.classList.add("hide");
@@ -451,6 +462,7 @@
       if(!data.token) throw new Error("Login OK but no token returned.");
       setToken(data.token);
       setLoggedInUI(true);
+      loadSections();
       showToast("Logged in");
       await refreshList();
       loginForm.reset();
@@ -495,7 +507,16 @@
       const imageUrl = await uploadToCloudinary(file);
 
       submitBtn.textContent = "Saving product...";
-      const payload = { name, price, imageUrl, sizes, discountEnabled, discountPercent, outOfStock };
+     const payload = {
+  name,
+  price,
+  imageUrl,
+  sizes,
+  section: sectionSelect.value,
+  discountEnabled,
+  discountPercent,
+  outOfStock
+};
 
       await api("/api/products", {
         method:"POST",
