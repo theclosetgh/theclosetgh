@@ -115,13 +115,12 @@
 
 <body>
 <script>
- // Allow access if admin token exists
-const TOKEN_KEY = "thecloset_admin_token_v1";
-const hasToken = !!localStorage.getItem(TOKEN_KEY);
+  // Allow access if admin token exists
+  const hasToken = !!localStorage.getItem("thecloset_admin_token_v1");
 
-if (!hasToken && new URLSearchParams(location.search).get("admin") !== "1") {
-  location.replace("/#home");
-}
+  if (!hasToken && new URLSearchParams(location.search).get("admin") !== "1") {
+    location.replace("/#home");
+  }
 </script>
 
 <div class="wrap">
