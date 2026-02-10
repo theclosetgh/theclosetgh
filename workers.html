@@ -218,6 +218,7 @@
   <h2 style="margin:0 0 10px;">Manage Sections</h2>
 
   <form id="sectionForm">
+    <ul id="sectionsList" style="margin-top:12px;padding-left:0;list-style:none;"></ul>
     <label>New Section Name</label>
     <input type="text" id="sectionName" placeholder="e.g. Dresses" required>
     <button type="submit">Add Section</button>
@@ -391,15 +392,46 @@
     if(!res.ok) throw new Error(data.error || ("HTTP " + res.status));
     return data;
   }
- async function loadSections() {
+async function loadSections() {
   const data = await api("/api/sections", { method: "GET" });
 
+  // Dropdown (products)
   sectionSelect.innerHTML = `
     <option value="">— Select section —</option>
     ${data.sections.map(s =>
       `<option value="${s.slug}">${s.name}</option>`
     ).join("")}
   `;
+
+  // Section delete list
+  const sectionsList = document.getElementById("sectionsList");
+
+  sectionsList.innerHTML = data.sections.length
+    ? data.sections.map(s => `
+        <li style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span>${s.name}</span>
+          <button class="btnSmall danger" onclick="deleteSection(${s.id}, '${s.name.replace(/'/g,"\\'")}')">
+            Delete
+          </button>
+        </li>
+      `).join("")
+    : "<li class='tiny'>No sections yet</li>";
+}
+  async function deleteSection(id, name) {
+  if (!confirm(`Delete section "${name}"?\nProducts will NOT be deleted.`)) return;
+
+  try {
+    await api("/api/sections/" + id, {
+      method: "DELETE",
+      headers: authedHeaders()
+    });
+
+    showToast("Section deleted");
+    await loadSections();
+    await refreshList();
+  } catch (err) {
+    alert("❌ Failed to delete section: " + err.message);
+  }
 }
   // ---------- ADD SECTION ----------
 const sectionForm = document.getElementById("sectionForm");
