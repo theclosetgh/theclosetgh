@@ -288,6 +288,17 @@
     if(!res.ok) throw new Error(data.error || ("HTTP " + res.status));
     return data;
   }
+ let activeSection = "all";
+
+function applySectionFilter(){
+  document.querySelectorAll(".product").forEach(card=>{
+    const sec = (card.dataset.section || "").toLowerCase();
+    card.style.display =
+      activeSection === "all" || sec === activeSection
+        ? "block"
+        : "none";
+  });
+}
  
 async function loadSections(){
   const data = await apiGet("/api/sections");
@@ -302,24 +313,16 @@ async function loadSections(){
     <button class="btn btn-cart" data-sec="all">All</button>
     ${data.sections.map(s => `
       <button class="btn btn-cart" data-sec="${s.slug}">
-        ${s.name}
+        ${escapeHtml(s.name)}
       </button>
     `).join("")}
   `;
 
-  menu.querySelectorAll("button").forEach(btn => {
-    btn.addEventListener("click", ()=>{
-      const sec = btn.dataset.sec.toLowerCase();
-
-      document.querySelectorAll(".product").forEach(card => {
-        const cardSec = (card.dataset.section || "").toLowerCase();
-
-        card.style.display =
-          sec === "all" || cardSec === sec
-            ? "block"
-            : "none";
-      });
-    });
+  menu.querySelectorAll("button").forEach(btn=>{
+    btn.onclick = ()=>{
+      activeSection = btn.dataset.sec.toLowerCase();
+      applySectionFilter();
+    };
   });
 }
   // Live product cache
@@ -643,6 +646,7 @@ function signatureOfProducts(products){
 
       grid.innerHTML = products.map(p => cardHTML(p.id, p)).join("");
       wireActions();
+     applySectionFilter();
 
       hasRenderedProducts = true;
 
@@ -668,6 +672,7 @@ loadProducts();
 </script>
 </body>
 </html>
+
 
 
 
