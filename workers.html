@@ -115,10 +115,13 @@
 
 <body>
 <script>
-  // STEALTH MODE: Only allow access via ?admin=1
-  const params = new URLSearchParams(location.search);
-  const isAdminLink = params.get("admin") === "1";
-  if (!isAdminLink) location.replace("/#home");
+ // Allow access if admin token exists
+const TOKEN_KEY = "thecloset_admin_token_v1";
+const hasToken = !!localStorage.getItem(TOKEN_KEY);
+
+if (!hasToken && new URLSearchParams(location.search).get("admin") !== "1") {
+  location.replace("/#home");
+}
 </script>
 
 <div class="wrap">
