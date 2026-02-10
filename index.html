@@ -245,184 +245,421 @@
 <div class="toast" id="toast">Added to cart</div>
 
 <script>
-/* ==========================
-   API SETTINGS
-   ========================== */
-const API_BASE = "https://the-closet-api.edriatebi2.workers.dev";
+  /* ==========================
+     CLOUDFLARE API SETTINGS
+     ========================== */
+  const API_BASE = "https://the-closet-api.edriatebi2.workers.dev";
 
-/* ==========================
-   SHOP SETTINGS
-   ========================== */
-const WHATSAPP_NUMBER = "233547706620";
-const DELIVERY_TEXT = "Delivery (if selected) will be arranged via Yango or Bolt.";
-const SCREENSHOT_TEXT = "Please send screenshots of the selected item(s) from the website.";
-const CART_KEY = "thecloset_cart_v2";
+  /* ==========================
+     SETTINGS (EDIT HERE ONLY)
+     ========================== */
+  const WHATSAPP_NUMBER = "233547706620";
+  const DELIVERY_TEXT = "Delivery (if selected) will be arranged via Yango or Bolt.";
+  const SCREENSHOT_TEXT = "Please send screenshots of the selected item(s) from the website.";
+  const AUTO_OPEN_CART_AFTER_ADD = false;
+  const CART_KEY = "thecloset_cart_v2";
 
-/* ==========================
-   GLOBAL STATE (CRITICAL)
-   ========================== */
-let activeSection = "all";
-const productCache = new Map();
-let cart = {};
+  document.getElementById("deliveryNote").innerHTML =
+    `Checkout is via WhatsApp. <strong>${DELIVERY_TEXT}</strong>`;
 
-/* ==========================
-   DOM REFERENCES
-   ========================== */
-const grid = document.getElementById("productsGrid");
-const toastEl = document.getElementById("toast");
-const sectionMenu = document.getElementById("sectionMenu");
-const cartCountEl = document.getElementById("cartCount");
-const cartTotalEl = document.getElementById("cartTotal");
-const deliveryNote = document.getElementById("deliveryNote");
+  const grid = document.getElementById("productsGrid");
+  const toastEl = document.getElementById("toast");
 
-deliveryNote.innerHTML =
-  `Checkout is via WhatsApp. <strong>${DELIVERY_TEXT}</strong>`;
-
-/* ==========================
-   HELPERS
-   ========================== */
-function money(n){ return `GHC ${Math.round(Number(n||0))}`; }
-
-function escapeHtml(str){
-  return String(str ?? "")
-    .replaceAll("&","&amp;")
-    .replaceAll("<","&lt;")
-    .replaceAll(">","&gt;")
-    .replaceAll('"',"&quot;")
-    .replaceAll("'","&#039;");
-}
-
-function showToast(text){
-  toastEl.textContent = text;
-  toastEl.classList.add("show");
-  clearTimeout(showToast._t);
-  showToast._t = setTimeout(()=>toastEl.classList.remove("show"),1200);
-}
-
-async function apiGet(path){
-  const res = await fetch(API_BASE + path);
-  const data = await res.json();
-  if(!res.ok) throw new Error(data.error || "API error");
-  return data;
-}
-
-/* ==========================
-   SECTION FILTER (FIX)
-   ========================== */
-function applySectionFilter(){
-  document.querySelectorAll(".product").forEach(card=>{
-    const sec = (card.dataset.section || "").toLowerCase();
-    card.style.display =
-      activeSection === "all" || sec === activeSection
-        ? "block"
-        : "none";
-  });
-}
-
-/* ==========================
-   LOAD SECTIONS
-   ========================== */
+  function money(n){ return `GHC ${Math.round(Number(n||0))}`; }
+  function escapeHtml(str){
+    return String(str ?? "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+  function showToast(text){
+    toastEl.textContent = text || "Done";
+    toastEl.classList.add("show");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=> toastEl.classList.remove("show"), 1200);
+  }
+  async function apiGet(path){
+       const res = await fetch(API_BASE + path, { method:"GET" });
+    const text = await res.text();
+    let data = {};
+    try{ data = JSON.parse(text); }catch(e){ data = { ok:false, error:"Invalid JSON from API", raw:text }; }
+    if(!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+    return data;
+  }
+ 
 async function loadSections(){
   const data = await apiGet("/api/sections");
+  const menu = document.getElementById("sectionMenu");
 
   if(!data.sections || data.sections.length === 0){
-    sectionMenu.innerHTML = "";
+    menu.innerHTML = "";
     return;
   }
 
-  sectionMenu.innerHTML = `
+  menu.innerHTML = `
     <button class="btn btn-cart" data-sec="all">All</button>
-    ${data.sections.map(s=>`
+    ${data.sections.map(s => `
       <button class="btn btn-cart" data-sec="${s.slug}">
-        ${escapeHtml(s.name)}
+        ${s.name}
       </button>
     `).join("")}
   `;
 
-  sectionMenu.querySelectorAll("button").forEach(btn=>{
-    btn.onclick = ()=>{
-      activeSection = btn.dataset.sec.toLowerCase();
-      applySectionFilter();
-    };
-  });
-}
+  menu.querySelectorAll("button").forEach(btn => {
+btn.addEventListener("click", ()=>{
+  activeSection = btn.dataset.sec.toLowerCase();
+  applySectionFilter();
+});
+ }
+  // Live product cache
+  const productCache = new Map();
 
-/* ==========================
-   LOAD PRODUCTS (NO DUPLICATES)
-   ========================== */
-let lastSignature = "";
-
-function signature(products){
-  return JSON.stringify(products.map(p=>({
-    id:p.id,
-    section:p.section,
-    price:p.price,
-    out:p.outOfStock
-  })));
-}
-
-async function loadProducts(){
-  const data = await apiGet("/api/products");
-  const products = data.products || [];
-
-  const sig = signature(products);
-  if(sig === lastSignature){
-    applySectionFilter();
-    return;
+  function getDiscountPercent(p){
+    const val = Number(p.discountPercent);
+    return Number.isFinite(val) && val > 0 ? val : 0;
   }
-  lastSignature = sig;
+  function finalPrice(p){
+    const base = Number(p.price || 0);
+    const discEnabled = !!p.discountEnabled;
+    const discPct = discEnabled ? getDiscountPercent(p) : 0;
+    if(discPct > 0) return base * (100 - discPct) / 100;
+    return base;
+  }
 
-  productCache.clear();
+  // CART (localStorage)
+  let cart = loadCart();
 
-  grid.innerHTML = products.map(p=>{
-    productCache.set(p.id,p);
+  function loadCart(){
+    try{
+      const raw = localStorage.getItem(CART_KEY);
+      if(!raw) return {};
+      const parsed = JSON.parse(raw);
+      return (parsed && typeof parsed === "object") ? parsed : {};
+    }catch(e){
+      return {};
+    }
+  }
+  function saveCart(){ localStorage.setItem(CART_KEY, JSON.stringify(cart)); }
+
+  function cartCount(){
+    return Object.values(cart).reduce((sum,it)=> sum + (Number(it.qty)||0), 0);
+  }
+  function cartTotal(){
+    return Object.values(cart).reduce((sum,it)=> sum + (Number(it.unitPrice)||0) * (Number(it.qty)||0), 0);
+  }
+  function setCartBadge(){
+    document.getElementById("cartCount").textContent = cartCount();
+    document.getElementById("cartTotal").textContent = money(cartTotal());
+  }
+  function cartKeyFrom(productId,size){
+    return `${productId}__${String(size||"").toLowerCase()}`;
+  }
+  function addToCart(item){
+    const key = cartKeyFrom(item.productId, item.size);
+    if(cart[key]) cart[key].qty += Number(item.qty)||1;
+    else cart[key] = { key, ...item, qty: Number(item.qty)||1 };
+    saveCart(); renderCart(); setCartBadge();
+  }
+  function incQty(key){ if(cart[key]){ cart[key].qty += 1; saveCart(); renderCart(); setCartBadge(); } }
+  function decQty(key){
+    if(!cart[key]) return;
+    cart[key].qty -= 1;
+    if(cart[key].qty <= 0) delete cart[key];
+    saveCart(); renderCart(); setCartBadge();
+  }
+  function removeItem(key){ if(cart[key]){ delete cart[key]; saveCart(); renderCart(); setCartBadge(); } }
+  function clearCart(){ cart = {}; saveCart(); renderCart(); setCartBadge(); }
+
+  // CART UI
+  const cartOverlay = document.getElementById("cartOverlay");
+  const cartDrawer = document.getElementById("cartDrawer");
+  const openCartBtn = document.getElementById("openCartBtn");
+  const closeCartBtn = document.getElementById("closeCartBtn");
+  const clearCartBtn = document.getElementById("clearCartBtn");
+  const checkoutBtn = document.getElementById("checkoutBtn");
+  const cartBody = document.getElementById("cartBody");
+
+  function openCart(){
+    cartOverlay.classList.add("show");
+    cartDrawer.classList.add("show");
+    cartDrawer.setAttribute("aria-hidden","false");
+  }
+  function closeCart(){
+    cartOverlay.classList.remove("show");
+    cartDrawer.classList.remove("show");
+    cartDrawer.setAttribute("aria-hidden","true");
+  }
+  openCartBtn.addEventListener("click", openCart);
+  closeCartBtn.addEventListener("click", closeCart);
+  cartOverlay.addEventListener("click", closeCart);
+  clearCartBtn.addEventListener("click", clearCart);
+
+  function renderCart(){
+    const items = Object.values(cart);
+    if(items.length === 0){
+      cartBody.innerHTML = `<div class="cartEmpty">Your cart is empty. Add items from the shop.</div>`;
+      return;
+    }
+    cartBody.innerHTML = items.map(it=>{
+      const lineTotal = (Number(it.unitPrice)||0) * (Number(it.qty)||0);
+      const live = productCache.get(it.productId);
+      const warn = (!live || live.outOfStock) ? `<div style="color:#b00020;font-weight:900;font-size:.85rem;margin-top:4px;">Currently unavailable</div>` : "";
+      return `
+        <div class="cartItem">
+          <div class="cartThumb">
+            <img src="${escapeHtml(it.imageUrl || 'home.jpg')}" alt="${escapeHtml(it.name)}">
+          </div>
+          <div class="cartMain">
+            <div class="cartTitle">${escapeHtml(it.name)}</div>
+            <div class="cartSub">
+              Size: ${escapeHtml(it.size)} • ${money(it.unitPrice)} each
+              ${warn}
+            </div>
+            <div class="cartRow">
+              <div class="qty">
+                <button type="button" aria-label="Decrease" data-dec="${escapeHtml(it.key)}">−</button>
+                <span>${it.qty}</span>
+                <button type="button" aria-label="Increase" data-inc="${escapeHtml(it.key)}">+</button>
+              </div>
+              <div class="cartPrice">${money(lineTotal)}</div>
+              <button class="cartRemove" type="button" data-rm="${escapeHtml(it.key)}">Remove</button>
+            </div>
+          </div>
+        </div>
+      `;
+    }).join("");
+
+    cartBody.querySelectorAll("[data-inc]").forEach(b=> b.addEventListener("click", ()=> incQty(b.getAttribute("data-inc"))));
+    cartBody.querySelectorAll("[data-dec]").forEach(b=> b.addEventListener("click", ()=> decQty(b.getAttribute("data-dec"))));
+    cartBody.querySelectorAll("[data-rm]").forEach(b=> b.addEventListener("click", ()=> removeItem(b.getAttribute("data-rm"))));
+  }
+
+  function validateCartAgainstLiveStock(){
+    const items = Object.values(cart);
+    const issues = [];
+    for(const it of items){
+      const live = productCache.get(it.productId);
+      if(!live){ issues.push(`• ${it.name} (not found / removed)`); continue; }
+      if(!!live.outOfStock){ issues.push(`• ${live.name || it.name} (out of stock)`); continue; }
+      const liveSizes = Array.isArray(live.sizes) && live.sizes.length ? live.sizes : null;
+      if(liveSizes && !liveSizes.includes(it.size)){
+        issues.push(`• ${live.name || it.name} (size ${it.size} unavailable)`);
+      }
+    }
+    return issues;
+  }
+
+  // CHECKOUT -> WhatsApp
+  checkoutBtn.addEventListener("click", (e)=>{
+    e.preventDefault();
+    const items = Object.values(cart);
+    if(items.length === 0){ alert("Your cart is empty."); return; }
+
+    const issues = validateCartAgainstLiveStock();
+    if(issues.length){
+      alert("Some items in your cart are not available right now:\n\n" + issues.join("\n") + "\n\nPlease remove them and try again.");
+      openCart();
+      return;
+    }
+
+    const lines = items.map((it, idx)=>{
+      const lineTotal = (Number(it.unitPrice)||0) * (Number(it.qty)||0);
+      return `${idx+1}) ${it.name} | Size: ${it.size} | Qty: ${it.qty} | ${money(lineTotal)}`;
+    }).join("\n");
+
+    const msg =
+`Hello THE CLOSET 👋
+I want to order the following items:
+
+${lines}
+
+Total: ${money(cartTotal())}
+
+${DELIVERY_TEXT}
+${SCREENSHOT_TEXT}
+Please confirm availability.`;
+
+    window.open(`https://wa.me/${WHATSAPP_NUMBER}?text=${encodeURIComponent(msg)}`, "_blank");
+  });
+
+  // PRODUCT CARDS
+  function cardHTML(id, p){
+    const name = String(p.name || "New Item");
+    const sizes = Array.isArray(p.sizes) && p.sizes.length ? p.sizes : ["M","L","XL"];
+    const out = !!p.outOfStock;
+
+    const base = Number(p.price || 0);
+    const discEnabled = !!p.discountEnabled;
+    const discPct = discEnabled ? getDiscountPercent(p) : 0;
+    const fin = finalPrice(p);
+
+    const badge = out
+      ? `<div class="badge-top out">OUT OF STOCK</div>`
+      : (discEnabled && discPct > 0 ? `<div class="badge-top">DISCOUNT</div>` : "");
+
+    const priceHTML = (discEnabled && discPct > 0)
+      ? `<span class="old">${money(base)}</span><span class="new">${money(fin)}</span><span class="disc">${Math.round(discPct)}% OFF</span>`
+      : `<span class="new">${money(base)}</span>`;
+
+    const opts = sizes.map(s=>`<option value="${escapeHtml(s)}">${escapeHtml(s)}</option>`).join("");
+    const img = String(p.imageUrl || "home.jpg");
+
     return `
-      <div class="product" data-id="${p.id}" data-section="${escapeHtml(p.section||"")}">
-        <img src="${escapeHtml(p.imageUrl)}">
+     <div class="product"
+     data-id="${escapeHtml(id)}"
+     data-out="${out?1:0}"
+     data-section="${escapeHtml(p.section || '')}">
+        ${badge}
+        <img src="${escapeHtml(img)}" alt="${escapeHtml(name)}">
         <div class="product-content">
-          <h3>${escapeHtml(p.name)}</h3>
-          <div class="price">${money(p.price)}</div>
+          <h3>${escapeHtml(name)}</h3>
+          <p>${escapeHtml(sizes.join("/"))}</p>
+          <div class="price">${priceHTML}</div>
+
+          <label>Size:</label>
+          <select class="size" ${out?"disabled":""}>${opts}</select>
+
+          <label>Quantity:</label>
+          <input type="number" class="quantity" min="1" max="10" value="1" ${out?"disabled":""}>
+
+          <div class="btnRow">
+            <button class="btn btn-cart ${out?"disabled":""}" type="button" data-action="addcart">
+              ${out ? "Out of Stock" : "Add to Cart"}
+            </button>
+          </div>
         </div>
       </div>
     `;
-  }).join("");
-
-  applySectionFilter();
-}
-
-/* ==========================
-   CART (MINIMAL, SAFE)
-   ========================== */
-function loadCart(){
-  try{
-    return JSON.parse(localStorage.getItem(CART_KEY)) || {};
-  }catch{
-    return {};
   }
-}
-function saveCart(){
-  localStorage.setItem(CART_KEY, JSON.stringify(cart));
-}
-function updateCartUI(){
-  cartCountEl.textContent =
-    Object.values(cart).reduce((s,i)=>s+i.qty,0);
-  cartTotalEl.textContent =
-    money(Object.values(cart).reduce((s,i)=>s+i.qty*i.price,0));
+
+  function wireActions(){
+    document.querySelectorAll(".product").forEach(card=>{
+      const out = card.dataset.out === "1";
+      if(out) return;
+
+      const productId = card.dataset.id;
+      const live = productCache.get(productId);
+      if(!live) return;
+
+      const name = String(live.name || card.querySelector("h3")?.innerText || "Item");
+      const img = String(live.imageUrl || "home.jpg");
+
+      const sizeEl = card.querySelector(".size");
+      const qtyEl = card.querySelector(".quantity");
+      const addBtn = card.querySelector("button[data-action='addcart']");
+
+      addBtn.addEventListener("click", ()=>{
+        const size = sizeEl.value;
+        const qty = Number(qtyEl.value || 1);
+        const unitPrice = finalPrice(live);
+
+        addToCart({ productId, name, size, qty, unitPrice, imageUrl: img });
+        showToast("Added to cart");
+        if(AUTO_OPEN_CART_AFTER_ADD) openCart();
+      });
+    });
+  }
+
+  // ======= OPTION A FIX (FULL) =======
+  // Only update DOM if products changed, no "Loading stuck", no overlap
+  let lastProductsSignature = "";
+  let hasRenderedProducts = false;
+  let isLoadingProducts = false;
+function signatureOfProducts(products){
+  return JSON.stringify(
+    (products || []).map(p => ({
+      id: p.id,
+      name: p.name,
+      price: Number(p.price||0),
+      sizes: Array.isArray(p.sizes) ? p.sizes : [],
+      imageUrl: p.imageUrl,
+      discountEnabled: !!p.discountEnabled,
+      discountPercent: Number(p.discountPercent||0),
+      outOfStock: !!p.outOfStock,
+      section: String(p.section || "")   // ✅ FIX
+    }))
+  );
 }
 
-/* ==========================
-   INIT
-   ========================== */
-cart = loadCart();
-updateCartUI();
-loadSections();
+  async function loadProducts(){
+    if(isLoadingProducts) return;
+    isLoadingProducts = true;
+
+    // show loading only on very first load
+    if(!hasRenderedProducts){
+      grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:#666;">Loading…</p>`;
+    }
+
+    try{
+      const data = await apiGet("/api/products");
+          const products = Array.isArray(data.products) ? data.products : [];
+
+      // compute signature BEFORE touching DOM
+      const sig = signatureOfProducts(products);
+
+      // if nothing changed & we already rendered, don't touch grid
+      if(hasRenderedProducts && sig === lastProductsSignature){
+        renderCart(); setCartBadge();
+        return;
+      }
+      lastProductsSignature = sig;
+
+      const y = window.scrollY;
+
+      productCache.clear();
+
+      if(products.length === 0){
+        grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:#666;">No products yet.</p>`;
+        hasRenderedProducts = true;
+        renderCart(); setCartBadge();
+        window.scrollTo(0, y);
+        return;
+      }
+
+      for(const p of products){
+        productCache.set(p.id, {
+          id: p.id,
+          name: p.name || "New Item",
+          price: Number(p.price || 0),
+          sizes: Array.isArray(p.sizes) ? p.sizes : ["M","L","XL"],
+          outOfStock: !!p.outOfStock,
+          imageUrl: p.imageUrl || "home.jpg",
+          discountEnabled: !!p.discountEnabled,
+          discountPercent: Number(p.discountPercent || 0),
+          createdAt: p.createdAt || null
+        });
+      }
+
+      grid.innerHTML = products.map(p => cardHTML(p.id, p)).join("");
+wireActions();
+applySectionFilter(); // ✅ IMPORTANT
+
+      hasRenderedProducts = true;
+
+      renderCart(); setCartBadge();
+      window.scrollTo(0, y);
+    }catch(err){
+      if(!hasRenderedProducts){
+        grid.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:#b00020;">Failed to load products: ${escapeHtml(err.message||String(err))}</p>`;
+      }
+      renderCart(); setCartBadge();
+    }finally{
+      isLoadingProducts = false;
+    }
+  }
+
+  // Init
+  renderCart();
+  setCartBadge();
+ loadSections();
 loadProducts();
-setInterval(loadProducts, 30000);
+  // Auto refresh (will re-render ONLY when products change)
+  setInterval(loadProducts, 30000);
 </script>
-
 </body>
 </html>
-
 
 
 
