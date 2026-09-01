@@ -715,7 +715,7 @@ sectionForm.addEventListener("submit", async (e) => {
       });
 
       row.addEventListener("dragleave", (e) => {
-        if(e.target === row) row.classList.remove("drag-over");
+        row.classList.remove("drag-over");
       });
 
       row.addEventListener("drop", async (e) => {
@@ -745,7 +745,7 @@ sectionForm.addEventListener("submit", async (e) => {
   async function saveProductOrder(){
     try{
       const rows = list.querySelectorAll("tr[data-id]");
-      const order = Array.from(rows).map(row => escapeHtml(row.dataset.id));
+      const order = Array.from(rows).map(row => row.dataset.id);
 
       await api("/api/products/reorder", {
         method: "POST",
