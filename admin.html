@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<title>THE CLOSET – Workers</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+<style>
+  :root{
+    --bg:#f5f5f5;
+    --card:#fff;
+    --text:#111;
+    --muted:#666;
+    --line:#eee;
+    --shadow:0 8px 22px rgba(0,0,0,.08);
+    --brand:#000;
+    --danger:#b00020;
+    --ok:#0b6b2a;
+    --warn:#b26a00;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:Arial,sans-serif;background:var(--bg);padding:20px;color:var(--text)}
+  .wrap{max-width:1100px;margin:0 auto}
+  header{display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+  h1{margin:0;font-size:1.3rem}
+  a{color:var(--brand);font-weight:900;text-decoration:none}
+  a:hover{text-decoration:underline}
+  .card{background:var(--card);border-radius:14px;padding:18px;box-shadow:var(--shadow);margin-bottom:16px;border:1px solid rgba(0,0,0,.06)}
+  label{font-weight:900;margin-top:10px;display:block}
+  input,button,select,textarea{width:100%;padding:10px;margin-top:6px;border:1px solid #ccc;border-radius:10px;font-size:15px}
+  input[type="file"]{padding:9px}
+  textarea{min-height:90px;resize:vertical}
+  button{background:var(--brand);color:#fff;cursor:pointer;font-weight:900}
+  button:hover{opacity:.92}
+  button:disabled{opacity:.65;cursor:not-allowed}
+  .danger{background:var(--danger)}
+  .ghost{background:#fff;color:#111;border:1px solid rgba(0,0,0,.18)}
+  .row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  @media (max-width:900px){.row{grid-template-columns:1fr}}
+
+  table{width:100%;border-collapse:collapse}
+  th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+  th{font-size:.92rem}
+  .tiny{font-size:.9rem;color:var(--muted);line-height:1.4}
+  .pill{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:900;font-size:.82rem}
+  .pill.on{background:#e9fff1;color:var(--ok);border:1px solid #bfeccc}
+  .pill.off{background:#fff4f4;color:#8a0f0f;border:1px solid #f0c0c0}
+  .pill.warn{background:#fff7e6;color:var(--warn);border:1px solid #ffe1a3}
+  .actions{display:flex;gap:8px;flex-wrap:wrap}
+  .btnSmall{width:auto;padding:8px 10px;border-radius:10px}
+  .topActions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+  .hide{display:none !important}
+  .hr{height:1px;background:var(--line);margin:14px 0}
+
+  .previewBox{
+    display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+    margin-top:10px;
+  }
+  .previewImg{
+    width:86px;height:86px;border-radius:14px;border:1px solid rgba(0,0,0,.08);
+    background:#fff;object-fit:cover;display:none;
+  }
+  .metaPill{
+    display:inline-flex;align-items:center;gap:8px;
+    font-weight:900;font-size:.85rem;color:#111;
+    padding:6px 10px;border-radius:999px;border:1px solid rgba(0,0,0,.1);
+    background:#fff;
+  }
+
+  .toast{
+    position:fixed;left:50%;bottom:18px;transform:translateX(-50%);
+    background:#111;color:#fff;padding:10px 14px;border-radius:999px;
+    font-weight:900;font-size:.9rem;opacity:0;pointer-events:none;
+    transition:opacity .18s ease, transform .18s ease;
+    z-index:99999;
+  }
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(-4px)}
+
+  /* ---------- Modal (EDIT) ---------- */
+  .modalOverlay{
+    position:fixed; inset:0; background:rgba(0,0,0,.45);
+    display:none; align-items:center; justify-content:center;
+    padding:16px; z-index:9999;
+  }
+  .modalOverlay.show{display:flex}
+  .modal{
+    width:min(720px, 100%);
+    max-height:min(86vh, 760px);
+    background:#fff; border-radius:16px; box-shadow:var(--shadow);
+    border:1px solid rgba(0,0,0,.08);
+    overflow:hidden;
+    display:flex;
+    flex-direction:column;
+  }
+  .modalHead{
+    display:flex; align-items:center; justify-content:space-between;
+    padding:14px 16px; border-bottom:1px solid var(--line);
+  }
+  .modalHead h3{margin:0; font-size:1.05rem}
+  .modalBody{
+    padding:16px;
+    overflow:auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  .modalFoot{
+    padding:14px 16px;
+    border-top:1px solid var(--line);
+    display:flex; gap:10px; justify-content:flex-end; flex-wrap:wrap;
+    background:#fff;
+    position:sticky;
+    bottom:0;
+  }
+
+  /* Drag and Drop Styles */
+  tbody tr.dragging{
+    opacity: 0.5;
+  }
+  tbody tr.drag-over{
+    background-color: #f0f0f0;
+    border-top: 2px solid var(--brand);
+  }
+  .drag-handle{
+    cursor: grab;
+    padding: 8px 10px;
+    font-size: 1.2rem;
+    user-select: none;
+    color: #999;
+    transition: color .2s;
+  }
+  .drag-handle:hover{
+    color: var(--brand);
+  }
+  .drag-handle:active{
+    cursor: grabbing;
+  }
+</style>
+</head>
+
+<body>
+<script>
+  // Allow access if admin token exists
+  const hasToken = !!localStorage.getItem("thecloset_admin_token_v1");
+
+  if (!hasToken && new URLSearchParams(location.search).get("admin") !== "1") {
+    location.replace("/#home");
+  }
+</script>
+
+<div class="wrap">
+  <header>
+    <h1>Workers – Manage Products</h1>
+    <div class="topActions">
+      <a href="/index.html">← Back to Shop</a>
+      <button id="logoutBtn" class="btnSmall danger hide" type="button">Log out</button>
+    </div>
+  </header>
+
+  <!-- LOGIN -->
+  <div class="card" id="loginCard">
+    <h2 style="margin:0 0 8px;">Worker Login</h2>
+    <p class="tiny">Authorized staff only.</p>
+
+    <form id="loginForm">
+      <label>Admin Password</label>
+      <input type="password" id="loginPass" placeholder="Enter admin password" required>
+      <button type="submit" id="loginBtn">Sign in</button>
+      <p class="tiny" style="margin-top:10px;">
+        If login fails, confirm Cloudflare Worker secrets: <b>ADMIN_PASSWORD</b> and <b>SESSION_SECRET</b>.
+      </p>
+    </form>
+  </div>
+
+  <!-- MAIN UI -->
+  <div id="workersUI" class="hide">
+
+    <div class="card">
+      <h2 style="margin:0 0 10px;">Add New Product</h2>
+
+      <form id="productForm">
+        <div class="row">
+          <div>
+            <label>Product Name</label>
+            <input type="text" id="name" required>
+          </div>
+          <div>
+            <label>Price (GHC)</label>
+            <input type="number" id="price" min="1" required>
+          </div>
+        </div>
+        <label>Section</label>
+<select id="sectionSelect" required>
+  <option value="">Loading sections…</option>
+</select>
+
+        <label>Upload Product Image (from device)</label>
+        <input type="file" id="imageFile" accept="image/*" required>
+        <div class="previewBox">
+          <img id="previewImg" class="previewImg" alt="Preview">
+          <span id="fileMeta" class="metaPill">No file selected</span>
+        </div>
+        <p class="tiny">This uploads to Cloudinary automatically and saves the image URL.</p>
+
+        <div class="row">
+          <div>
+            <label>Sizes (comma separated)</label>
+            <input type="text" id="sizes" placeholder="M,L,XL" required>
+          </div>
+          <div>
+            <label>Discount Percent (0–90)</label>
+            <input type="number" id="discountPercent" min="0" max="90" value="0">
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label style="display:flex;align-items:center;gap:10px;font-weight:900;">
+              <input type="checkbox" id="discountEnabled" style="width:auto; transform:scale(1.2); margin:0;">
+              Enable discount
+            </label>
+            <p class="tiny">If enabled, the shop shows old price + discounted price.</p>
+          </div>
+          <div>
+            <label style="display:flex;align-items:center;gap:10px;font-weight:900;">
+              <input type="checkbox" id="outOfStock" style="width:auto; transform:scale(1.2); margin:0;">
+              Mark out of stock
+            </label>
+            <p class="tiny">Out of stock items cannot be added to cart.</p>
+          </div>
+        </div>
+
+        <button type="submit" id="submitBtn">Upload & Add Product</button>
+
+        <div class="hr"></div>
+        <p class="tiny" style="margin:0">
+          Cloudinary must have an <b>UNSIGNED</b> upload preset named <b>the_closet</b>.
+        </p>
+      </form>
+    </div>
+
+    <div class="card">
+  <h2 style="margin:0 0 10px;">Manage Sections</h2>
+
+  <form id="sectionForm">
+    <ul id="sectionsList" style="margin-top:12px;padding-left:0;list-style:none;"></ul>
+    <label>New Section Name</label>
+    <input type="text" id="sectionName" placeholder="e.g. Dresses" required>
+    <button type="submit">Add Section</button>
+  </form>
+
+  <p class="tiny" id="sectionsHint" style="margin-top:10px;"></p>
+</div>
+    <div class="card">
+      <h2 style="margin:0 0 10px;">Current Products</h2>
+      <p class="tiny" id="apiHint" style="margin:0 0 10px;"></p>
+      <p class="tiny" style="margin:0 0 10px;color:#0b6b2a;font-weight:900;">💡 Drag and drop rows to reorder products. The new order is saved automatically.</p>
+
+      <div style="overflow:auto;">
+        <table>
+          <thead>
+            <tr>
+              <th style="width:40px;"></th>
+              <th>Preview</th>
+              <th>Name</th>
+              <th>Price</th>
+              <th>Discount</th>
+              <th>Stock</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="list"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- EDIT MODAL -->
+<div class="modalOverlay" id="editOverlay" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="editTitle">
+    <div class="modalHead">
+      <h3 id="editTitle">Edit Product</h3>
+      <button type="button" id="closeEdit" class="btnSmall ghost">Close</button>
+    </div>
+
+    <div class="modalBody">
+      <div class="row">
+        <div>
+          <label>Name</label>
+          <input type="text" id="editName">
+        </div>
+        <div>
+          <label>Price (GHC)</label>
+          <input type="number" id="editPrice" min="1">
+        </div>
+      </div>
+
+      <label>Sizes (comma separated)</label>
+      <input type="text" id="editSizes" placeholder="M,L,XL">
+      <label>Section</label>
+<select id="editSectionSelect"></select>
+
+      <div class="row">
+        <div>
+          <label style="display:flex;align-items:center;gap:10px;font-weight:900;">
+            <input type="checkbox" id="editDiscountEnabled" style="width:auto; transform:scale(1.2); margin:0;">
+            Enable discount
+          </label>
+          <label>Discount Percent (0–90)</label>
+          <input type="number" id="editDiscountPercent" min="0" max="90" value="0">
+        </div>
+
+        <div>
+          <label style="display:flex;align-items:center;gap:10px;font-weight:900;">
+            <input type="checkbox" id="editOutOfStock" style="width:auto; transform:scale(1.2); margin:0;">
+            Out of stock
+          </label>
+
+          <label>Change image (optional)</label>
+          <input type="file" id="editImageFile" accept="image/*">
+          <div class="previewBox">
+            <img id="editPreviewImg" class="previewImg" alt="Preview">
+            <span id="editFileMeta" class="metaPill">No new file</span>
+          </div>
+
+          <p class="tiny">If you select a new file, it will upload to Cloudinary and replace the image URL.</p>
+        </div>
+      </div>
+    </div>
+
+    <div class="modalFoot">
+      <button type="button" id="deleteInEdit" class="btnSmall danger">Delete</button>
+      <button type="button" id="saveEdit" class="btnSmall" style="background:#000;color:#fff;">Save Changes</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast">Done</div>
+
+<script>
+  // ===========================
+  // CONFIG — SET YOUR API URL
+  // ===========================
+  const API_BASE = "https://the-closet-api.edriatebi2.workers.dev";
+
+  // ===========================
+  // CLOUDINARY CONFIG
+  // ===========================
+  const CLOUD_NAME = "dwpwtanc8";
+  const UPLOAD_PRESET = "the_closet"; // MUST be unsigned preset
+
+  // Token key
+  const TOKEN_KEY = "thecloset_admin_token_v1";
+
+  // UI elements
+  const loginCard = document.getElementById("loginCard");
+  const workersUI = document.getElementById("workersUI");
+  const loginForm = document.getElementById("loginForm");
+  const loginBtn = document.getElementById("loginBtn");
+  const logoutBtn = document.getElementById("logoutBtn");
+
+  const productForm = document.getElementById("productForm");
+  const submitBtn = document.getElementById("submitBtn");
+  const sectionSelect = document.getElementById("sectionSelect");
+  const list = document.getElementById("list");
+  const apiHint = document.getElementById("apiHint");
+  const toastEl = document.getElementById("toast");
+
+  const imageFileEl = document.getElementById("imageFile");
+  const previewImg = document.getElementById("previewImg");
+  const fileMeta = document.getElementById("fileMeta");
+
+  // Edit modal elements
+  const editOverlay = document.getElementById("editOverlay");
+  const closeEditBtn = document.getElementById("closeEdit");
+  const saveEditBtn = document.getElementById("saveEdit");
+  const deleteInEditBtn = document.getElementById("deleteInEdit");
+
+  const editName = document.getElementById("editName");
+  const editPrice = document.getElementById("editPrice");
+  const editSizes = document.getElementById("editSizes");
+  const editSectionSelect = document.getElementById("editSectionSelect");
+  const editDiscountEnabled = document.getElementById("editDiscountEnabled");
+  const editDiscountPercent = document.getElementById("editDiscountPercent");
+  const editOutOfStock = document.getElementById("editOutOfStock");
+
+  const editImageFileEl = document.getElementById("editImageFile");
+  const editPreviewImg = document.getElementById("editPreviewImg");
+  const editFileMeta = document.getElementById("editFileMeta");
+
+  apiHint.textContent = `API: ${API_BASE}`;
+
+  function showToast(text){
+    toastEl.textContent = text || "Done";
+    toastEl.classList.add("show");
+    clearTimeout(showToast._t);
+    showToast._t = setTimeout(()=>toastEl.classList.remove("show"), 1200);
+  }
+
+  function getToken(){ return localStorage.getItem(TOKEN_KEY) || ""; }
+  function setToken(t){ localStorage.setItem(TOKEN_KEY, t); }
+  function clearToken(){ localStorage.removeItem(TOKEN_KEY); }
+
+  function authedHeaders(){
+    const t = getToken();
+    return {
+      "Content-Type":"application/json",
+      "Authorization": "Bearer " + t
+    };
+  }
+
+  async function api(path, opts){
+    const res = await fetch(API_BASE + path, opts);
+    const text = await res.text();
+    let data = {};
+    try{ data = JSON.parse(text); }catch(e){ data = { raw:text }; }
+    if(!res.ok) throw new Error(data.error || ("HTTP " + res.status));
+    return data;
+  }
+async function loadSections() {
+  const data = await api("/api/sections", { method: "GET" });
+
+  // Dropdown (products)
+  sectionSelect.innerHTML = `
+    <option value="">— Select section —</option>
+    ${data.sections.map(s =>
+      `<option value="${s.slug}">${s.name}</option>`
+    ).join("")}
+  `;
+
+  // Section delete list
+  const sectionsList = document.getElementById("sectionsList");
+
+  sectionsList.innerHTML = data.sections.length
+    ? data.sections.map(s => `
+        <li style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+          <span>${s.name}</span>
+          <button class="btnSmall danger" onclick="deleteSection(${s.id}, '${s.name.replace(/'/g,"\\'")}')">
+            Delete
+          </button>
+        </li>
+      `).join("")
+    : "<li class='tiny'>No sections yet</li>";
+}
+  async function deleteSection(id, name) {
+  if (!confirm(`Delete section "${name}"?\nProducts will NOT be deleted.`)) return;
+
+  try {
+    await api("/api/sections/" + id, {
+      method: "DELETE",
+      headers: authedHeaders()
+    });
+
+    showToast("Section deleted");
+    await loadSections();
+    await refreshList();
+  } catch (err) {
+    alert("❌ Failed to delete section: " + err.message);
+  }
+}
+  // ---------- ADD SECTION ----------
+const sectionForm = document.getElementById("sectionForm");
+const sectionNameInput = document.getElementById("sectionName");
+const sectionsHint = document.getElementById("sectionsHint");
+
+sectionForm.addEventListener("submit", async (e) => {
+  e.preventDefault();
+
+  const name = sectionNameInput.value.trim();
+  if (!name) return;
+
+  try {
+    await api("/api/sections", {
+      method: "POST",
+      headers: authedHeaders(),
+      body: JSON.stringify({ name })
+    });
+
+    sectionNameInput.value = "";
+    showToast("Section added");
+
+    await loadSections(); // refresh dropdown
+  } catch (err) {
+    alert("❌ Failed to add section: " + (err.message || "Error"));
+  }
+});
+  function setLoggedInUI(isIn){
+    if(isIn){
+      loginCard.classList.add("hide");
+      workersUI.classList.remove("hide");
+      logoutBtn.classList.remove("hide");
+    }else{
+      workersUI.classList.add("hide");
+      logoutBtn.classList.add("hide");
+      loginCard.classList.remove("hide");
+      list.innerHTML = "";
+    }
+  }
+
+  // ---------- Preview selected image (Add form) ----------
+  imageFileEl.addEventListener("change", ()=>{
+    const f = imageFileEl.files?.[0];
+    if(!f){
+      previewImg.style.display = "none";
+      fileMeta.textContent = "No file selected";
+      return;
+    }
+    const mb = (f.size / (1024*1024)).toFixed(2);
+    fileMeta.textContent = `${f.name} • ${mb}MB`;
+    previewImg.src = URL.createObjectURL(f);
+    previewImg.style.display = "block";
+  });
+
+  // ---------- Preview selected image (Edit modal) ----------
+  editImageFileEl.addEventListener("change", ()=>{
+    const f = editImageFileEl.files?.[0];
+    if(!f){
+      editPreviewImg.style.display = "none";
+      editFileMeta.textContent = "No new file";
+      return;
+    }
+    const mb = (f.size / (1024*1024)).toFixed(2);
+    editFileMeta.textContent = `${f.name} • ${mb}MB`;
+    editPreviewImg.src = URL.createObjectURL(f);
+    editPreviewImg.style.display = "block";
+  });
+
+  // ---------- Cloudinary upload ----------
+  async function uploadToCloudinary(file){
+    const url = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+    const fd = new FormData();
+    fd.append("file", file);
+    fd.append("upload_preset", UPLOAD_PRESET);
+    fd.append("folder", "the-closet");
+
+    const res = await fetch(url, { method:"POST", body: fd });
+    const data = await res.json().catch(()=> ({}));
+    if(!res.ok) throw new Error(data?.error?.message || "Cloudinary upload failed");
+    if(!data.secure_url) throw new Error("No secure_url returned from Cloudinary");
+    return data.secure_url;
+  }
+
+  // ---------- Check session on load ----------
+ (async function init(){
+  const t = getToken();
+  if(!t){ setLoggedInUI(false); return; }
+
+  setLoggedInUI(true);
+  await loadSections();
+  await refreshList().catch(()=>{});
+})();
+
+  // ---------- LOGIN ----------
+  loginForm.addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    loginBtn.disabled = true;
+    loginBtn.textContent = "Signing in...";
+    try{
+      const password = document.getElementById("loginPass").value;
+      const data = await api("/api/login", {
+        method:"POST",
+        headers: { "Content-Type":"application/json" },
+        body: JSON.stringify({ password })
+      });
+
+      if(!data.token) throw new Error("Login OK but no token returned.");
+      setToken(data.token);
+      setLoggedInUI(true);
+      loadSections();
+      showToast("Logged in");
+      await refreshList();
+      loginForm.reset();
+    }catch(err){
+      alert("❌ Login failed: " + (err.message || "Try again"));
+      clearToken();
+      setLoggedInUI(false);
+    }finally{
+      loginBtn.disabled = false;
+      loginBtn.textContent = "Sign in";
+    }
+  });
+
+  // ---------- LOGOUT ----------
+  logoutBtn.addEventListener("click", ()=>{
+    clearToken();
+    setLoggedInUI(false);
+    showToast("Logged out");
+    location.replace("/#home");
+  });
+
+  // ---------- ADD PRODUCT ----------
+  productForm.addEventListener("submit", async (e)=>{
+    e.preventDefault();
+    submitBtn.disabled = true;
+
+    try{
+      const name = document.getElementById("name").value.trim();
+      const price = Number(document.getElementById("price").value);
+      const sizes = document.getElementById("sizes").value.split(",").map(s=>s.trim()).filter(Boolean);
+
+      const discountEnabled = document.getElementById("discountEnabled").checked;
+      const discountPercent = Number(document.getElementById("discountPercent").value || 0);
+      const outOfStock = document.getElementById("outOfStock").checked;
+
+      const file = document.getElementById("imageFile").files?.[0];
+      if(!file) throw new Error("Choose an image file.");
+
+      if(file.size > 8 * 1024 * 1024) throw new Error("Image too large. Max 8MB.");
+
+      submitBtn.textContent = "Uploading image...";
+      const imageUrl = await uploadToCloudinary(file);
+
+      submitBtn.textContent = "Saving product...";
+     const payload = {
+  name,
+  price,
+  imageUrl,
+  sizes,
+  section: sectionSelect.value,
+  discountEnabled,
+  discountPercent,
+  outOfStock
+};
+
+      await api("/api/products", {
+        method:"POST",
+        headers: authedHeaders(),
+        body: JSON.stringify(payload)
+      });
+
+      showToast("Product added");
+      productForm.reset();
+      previewImg.style.display = "none";
+      fileMeta.textContent = "No file selected";
+      await refreshList();
+    }catch(err){
+      alert("❌ Failed: " + (err.message || "Try again"));
+    }finally{
+      submitBtn.disabled = false;
+      submitBtn.textContent = "Upload & Add Product";
+    }
+  });
+
+  // ---------- LIST PRODUCTS ----------
+  let productsCache = []; // keep last list for Edit
+  async function refreshList(){
+    const data = await api("/api/products", { method:"GET" });
+    const products = Array.isArray(data.products) ? data.products : [];
+    productsCache = products;
+
+    if(products.length === 0){
+      list.innerHTML = `<tr><td colspan="7">No products yet.</td></tr>`;
+      return;
+    }
+
+    list.innerHTML = products.map((p, idx)=>{
+      const disc = p.discountEnabled
+        ? `<span class="pill on">ON ${Math.round(p.discountPercent||0)}%</span>`
+        : `<span class="pill off">OFF</span>`;
+      const stock = p.outOfStock
+        ? `<span class="pill off">OUT</span>`
+        : `<span class="pill on">IN</span>`;
+      const img = p.imageUrl
+        ? `<img src="${escapeHtml(p.imageUrl)}" style="width:55px;height:55px;object-fit:cover;border-radius:10px;border:1px solid rgba(0,0,0,.06)">`
+        : "";
+
+      return `
+        <tr data-id="${escapeHtml(p.id)}" data-index="${idx}" draggable="true">
+          <td><span class="drag-handle">⋮⋮</span></td>
+          <td>${img}</td>
+          <td>${escapeHtml(p.name || "")}</td>
+          <td>GHC ${escapeHtml(String(p.price ?? ""))}</td>
+          <td>${disc}</td>
+          <td>${stock}</td>
+          <td class="actions">
+            <button type="button" class="btnSmall" data-action="edit">Edit</button>
+            <button type="button" class="btnSmall" data-action="toggle-discount">
+              ${p.discountEnabled ? "Disable Discount" : "Enable Discount"}
+            </button>
+            <button type="button" class="btnSmall" data-action="toggle-stock">
+              ${p.outOfStock ? "Set In Stock" : "Set Out"}
+            </button>
+            <button type="button" class="btnSmall danger" data-action="delete">Delete</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+
+    setupDragAndDrop();
+  }
+
+  // ---------- DRAG AND DROP ----------
+  let draggedRow = null;
+
+  function setupDragAndDrop(){
+    const rows = list.querySelectorAll("tr[draggable='true']");
+
+    rows.forEach(row => {
+      row.addEventListener("dragstart", (e) => {
+        draggedRow = row;
+        row.classList.add("dragging");
+        e.dataTransfer.effectAllowed = "move";
+      });
+
+      row.addEventListener("dragend", (e) => {
+        row.classList.remove("dragging");
+        rows.forEach(r => r.classList.remove("drag-over"));
+        draggedRow = null;
+      });
+
+      row.addEventListener("dragover", (e) => {
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "move";
+        if(row !== draggedRow) row.classList.add("drag-over");
+      });
+
+      row.addEventListener("dragleave", (e) => {
+        if(e.target === row) row.classList.remove("drag-over");
+      });
+
+      row.addEventListener("drop", async (e) => {
+        e.preventDefault();
+        row.classList.remove("drag-over");
+
+        if(draggedRow && draggedRow !== row){
+          // Reorder in DOM
+          const parent = row.parentNode;
+          const allRows = Array.from(parent.querySelectorAll("tr[data-index]"));
+          const draggedIndex = allRows.indexOf(draggedRow);
+          const targetIndex = allRows.indexOf(row);
+
+          if(draggedIndex < targetIndex){
+            row.parentNode.insertBefore(draggedRow, row.nextSibling);
+          }else{
+            row.parentNode.insertBefore(draggedRow, row);
+          }
+
+          // Save new order
+          await saveProductOrder();
+        }
+      });
+    });
+  }
+
+  async function saveProductOrder(){
+    try{
+      const rows = list.querySelectorAll("tr[data-id]");
+      const order = Array.from(rows).map(row => escapeHtml(row.dataset.id));
+
+      await api("/api/products/reorder", {
+        method: "POST",
+        headers: authedHeaders(),
+        body: JSON.stringify({ order })
+      });
+
+      showToast("Order saved");
+    }catch(err){
+      alert("❌ Failed to save order: " + (err.message || "Try again"));
+      await refreshList();
+    }
+  }
+
+  // ---------- EDIT MODAL OPEN/CLOSE ----------
+  let editingId = null;
+
+  function openEditModal(product){
+    editingId = product.id;
+
+    editName.value = product.name || "";
+    editPrice.value = Number(product.price || 0);
+    editSizes.value = Array.isArray(product.sizes) ? product.sizes.join(",") : "";
+    // Load sections into edit dropdown
+editSectionSelect.innerHTML = sectionSelect.innerHTML;
+editSectionSelect.value = product.section || "";
+    editDiscountEnabled.checked = !!product.discountEnabled;
+    editDiscountPercent.value = Number(product.discountPercent || 0);
+    editOutOfStock.checked = !!product.outOfStock;
+
+    // reset image chooser
+    editImageFileEl.value = "";
+    editPreviewImg.style.display = "none";
+    editFileMeta.textContent = "No new file";
+
+    editOverlay.classList.add("show");
+    editOverlay.setAttribute("aria-hidden","false");
+  }
+
+  function closeEditModal(){
+    editingId = null;
+    editOverlay.classList.remove("show");
+    editOverlay.setAttribute("aria-hidden","true");
+  }
+
+  closeEditBtn.addEventListener("click", closeEditModal);
+  editOverlay.addEventListener("click", (e)=>{
+    if(e.target === editOverlay) closeEditModal();
+  });
+  document.addEventListener("keydown", (e)=>{
+    if(e.key === "Escape" && editOverlay.classList.contains("show")) closeEditModal();
+  });
+
+  // ---------- TABLE ACTIONS ----------
+  list.addEventListener("click", async (e)=>{
+    const btn = e.target.closest("button[data-action]");
+    if(!btn) return;
+
+    const row = btn.closest("tr[data-id]");
+    const id = row?.dataset?.id;
+    if(!id) return;
+
+    try{
+      if(btn.dataset.action === "edit"){
+        const product = productsCache.find(x => String(x.id) === String(id));
+        if(!product){ alert("Product not found."); return; }
+        openEditModal(product);
+        return;
+      }
+
+      if(btn.dataset.action === "toggle-discount"){
+        const enable = confirm("Enable discount?\nOK = enable, Cancel = disable");
+        let percent = 0;
+        if(enable){
+          const v = prompt("Discount percent (0–90):", "10");
+          percent = Math.max(0, Math.min(90, Number(v || 0)));
+        }
+        await api("/api/products/" + encodeURIComponent(id), {
+          method:"PUT",
+          headers: authedHeaders(),
+          body: JSON.stringify({ discountEnabled: enable, discountPercent: percent })
+        });
+        showToast("Updated");
+        await refreshList();
+        return;
+      }
+
+      if(btn.dataset.action === "toggle-stock"){
+        const out = confirm("Mark OUT OF STOCK?\nOK = OUT, Cancel = IN STOCK");
+        await api("/api/products/" + encodeURIComponent(id), {
+          method:"PUT",
+          headers: authedHeaders(),
+          body: JSON.stringify({ outOfStock: out })
+        });
+        showToast("Updated");
+        await refreshList();
+        return;
+      }
+
+      if(btn.dataset.action === "delete"){
+        if(!confirm("Delete this product?")) return;
+        await api("/api/products/" + encodeURIComponent(id), {
+          method:"DELETE",
+          headers: authedHeaders()
+        });
+        showToast("Deleted");
+        await refreshList();
+        return;
+      }
+    }catch(err){
+      alert("❌ Action failed: " + (err.message || "Try again"));
+      const msg = String(err.message || "").toLowerCase();
+      if(msg.includes("unauthorized") || msg.includes("401")){
+        clearToken();
+        setLoggedInUI(false);
+      }
+    }
+  });
+
+  // ---------- SAVE EDIT ----------
+  saveEditBtn.addEventListener("click", async ()=>{
+    if(!editingId) return;
+
+    saveEditBtn.disabled = true;
+    saveEditBtn.textContent = "Saving...";
+
+    try{
+      const nextName = editName.value.trim();
+      const nextPrice = Number(editPrice.value || 0);
+      const nextSizes = editSizes.value.split(",").map(s=>s.trim()).filter(Boolean);
+
+      const nextDiscountEnabled = !!editDiscountEnabled.checked;
+      const nextDiscountPercent = Math.max(0, Math.min(90, Number(editDiscountPercent.value || 0)));
+      const nextOutOfStock = !!editOutOfStock.checked;
+
+      if(!nextName) throw new Error("Name is required.");
+      if(!Number.isFinite(nextPrice) || nextPrice <= 0) throw new Error("Price must be valid.");
+      if(nextSizes.length === 0) throw new Error("Sizes cannot be empty.");
+
+      // Optional new image
+      let nextImageUrl = undefined;
+      const newFile = editImageFileEl.files?.[0];
+      if(newFile){
+        if(newFile.size > 8 * 1024 * 1024) throw new Error("Image too large. Max 8MB.");
+        saveEditBtn.textContent = "Uploading image...";
+        nextImageUrl = await uploadToCloudinary(newFile);
+      }
+
+      saveEditBtn.textContent = "Saving...";
+      const payload = {
+        name: nextName,
+        price: nextPrice,
+        sizes: nextSizes,
+        discountEnabled: nextDiscountEnabled,
+        discountPercent: nextDiscountPercent,
+        outOfStock: nextOutOfStock,
+        section: editSectionSelect.value,
+      };
+      if(nextImageUrl) payload.imageUrl = nextImageUrl;
+
+      await api("/api/products/" + encodeURIComponent(editingId), {
+        method:"PUT",
+        headers: authedHeaders(),
+        body: JSON.stringify(payload)
+      });
+
+      showToast("Saved");
+      closeEditModal();
+      await refreshList();
+    }catch(err){
+      alert("❌ Save failed: " + (err.message || "Try again"));
+      const msg = String(err.message || "").toLowerCase();
+      if(msg.includes("unauthorized") || msg.includes("401")){
+        clearToken();
+        setLoggedInUI(false);
+      }
+    }finally{
+      saveEditBtn.disabled = false;
+      saveEditBtn.textContent = "Save Changes";
+    }
+  });
+
+  // ---------- DELETE INSIDE EDIT ----------
+  deleteInEditBtn.addEventListener("click", async ()=>{
+    if(!editingId) return;
+    if(!confirm("Delete this product?")) return;
+
+    deleteInEditBtn.disabled = true;
+    deleteInEditBtn.textContent = "Deleting...";
+
+    try{
+      await api("/api/products/" + encodeURIComponent(editingId), {
+        method:"DELETE",
+        headers: authedHeaders()
+      });
+      showToast("Deleted");
+      closeEditModal();
+      await refreshList();
+    }catch(err){
+      alert("❌ Delete failed: " + (err.message || "Try again"));
+      const msg = String(err.message || "").toLowerCase();
+      if(msg.includes("unauthorized") || msg.includes("401")){
+        clearToken();
+        setLoggedInUI(false);
+      }
+    }finally{
+      deleteInEditBtn.disabled = false;
+      deleteInEditBtn.textContent = "Delete";
+    }
+  });
+
+  function escapeHtml(str){
+    return String(str ?? "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+</script>
+
+</body>
+</html>
