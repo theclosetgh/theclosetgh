@@ -39,15 +39,15 @@
   @media (max-width:900px){.row{grid-template-columns:1fr}}
 
   table{width:100%;border-collapse:collapse}
-  th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle}
+  th,td{padding:10px;border-bottom:1px solid var(--line);text-align:left;vertical-align:middle;white-space:nowrap}
   th{font-size:.92rem}
   .tiny{font-size:.9rem;color:var(--muted);line-height:1.4}
   .pill{display:inline-block;padding:6px 10px;border-radius:999px;font-weight:900;font-size:.82rem}
   .pill.on{background:#e9fff1;color:var(--ok);border:1px solid #bfeccc}
   .pill.off{background:#fff4f4;color:#8a0f0f;border:1px solid #f0c0c0}
   .pill.warn{background:#fff7e6;color:var(--warn);border:1px solid #ffe1a3}
-  .actions{display:flex;gap:8px;flex-wrap:wrap}
-  .btnSmall{width:auto;padding:8px 10px;border-radius:10px}
+  .actions{display:flex;gap:4px;flex-wrap:wrap}
+  .btnSmall{width:auto;padding:6px 8px;border-radius:8px;font-size:.85rem}
   .topActions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
   .hide{display:none !important}
   .hr{height:1px;background:var(--line);margin:14px 0}
@@ -121,17 +121,38 @@
   }
   .drag-handle{
     cursor: grab;
-    padding: 8px 10px;
-    font-size: 1.2rem;
+    padding: 8px 6px;
+    font-size: 1rem;
     user-select: none;
     color: #999;
     transition: color .2s;
+    display: inline-block;
+    min-width: 30px;
+    text-align: center;
   }
   .drag-handle:hover{
     color: var(--brand);
   }
   .drag-handle:active{
     cursor: grabbing;
+  }
+
+  /* Table wrapper for better mobile experience */
+  .table-wrapper{
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+    border-radius: 12px;
+  }
+
+  /* Sticky drag handle column */
+  tbody td:first-child{
+    position: sticky;
+    left: 0;
+    background: #fff;
+    z-index: 10;
+  }
+  tbody tr.drag-over td:first-child{
+    background: #f0f0f0;
   }
 </style>
 </head>
@@ -252,13 +273,13 @@
     <div class="card">
       <h2 style="margin:0 0 10px;">Current Products</h2>
       <p class="tiny" id="apiHint" style="margin:0 0 10px;"></p>
-      <p class="tiny" style="margin:0 0 10px;color:#0b6b2a;font-weight:900;">💡 Drag and drop rows to reorder products. The new order is saved automatically.</p>
+      <p class="tiny" style="margin:0 0 10px;color:#0b6b2a;font-weight:900;">💡 Grab the ⋮⋮ handle on the left to drag and reorder products. New order saves automatically.</p>
 
-      <div style="overflow:auto;">
+      <div class="table-wrapper">
         <table>
           <thead>
             <tr>
-              <th style="width:40px;"></th>
+              <th style="width:40px;">Drag</th>
               <th>Preview</th>
               <th>Name</th>
               <th>Price</th>
@@ -661,7 +682,7 @@ sectionForm.addEventListener("submit", async (e) => {
         ? `<span class="pill off">OUT</span>`
         : `<span class="pill on">IN</span>`;
       const img = p.imageUrl
-        ? `<img src="${escapeHtml(p.imageUrl)}" style="width:55px;height:55px;object-fit:cover;border-radius:10px;border:1px solid rgba(0,0,0,.06)">`
+        ? `<img src="${escapeHtml(p.imageUrl)}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;border:1px solid rgba(0,0,0,.06)">`
         : "";
 
       return `
@@ -674,13 +695,9 @@ sectionForm.addEventListener("submit", async (e) => {
           <td>${stock}</td>
           <td class="actions">
             <button type="button" class="btnSmall" data-action="edit">Edit</button>
-            <button type="button" class="btnSmall" data-action="toggle-discount">
-              ${p.discountEnabled ? "Disable Discount" : "Enable Discount"}
-            </button>
-            <button type="button" class="btnSmall" data-action="toggle-stock">
-              ${p.outOfStock ? "Set In Stock" : "Set Out"}
-            </button>
-            <button type="button" class="btnSmall danger" data-action="delete">Delete</button>
+            <button type="button" class="btnSmall" data-action="toggle-discount" style="font-size:.75rem;padding:4px 6px;">Discount</button>
+            <button type="button" class="btnSmall" data-action="toggle-stock" style="font-size:.75rem;padding:4px 6px;">Stock</button>
+            <button type="button" class="btnSmall danger" data-action="delete" style="font-size:.75rem;padding:4px 6px;">Delete</button>
           </td>
         </tr>
       `;
