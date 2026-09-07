@@ -1,698 +1,470 @@
-/**
- * THE CLOSET - Cloudflare Worker Backend
- * Handles all API endpoints for product management, cart, and ordering
- */
-
-// ===========================
-// ROUTER & UTILITIES
-// ===========================
-
-class Router {
-  constructor() {
-    this.routes = [];
-  }
-
-  get(path, handler) {
-    this.routes.push({ method: 'GET', path, handler });
-  }
-
-  post(path, handler) {
-    this.routes.push({ method: 'POST', path, handler });
-  }
-
-  put(path, handler) {
-    this.routes.push({ method: 'PUT', path, handler });
-  }
-
-  delete(path, handler) {
-    this.routes.push({ method: 'DELETE', path, handler });
-  }
-
-  async route(req, env) {
-    const url = new URL(req.url);
-    const method = req.method;
-    const pathname = url.pathname;
-
-    for (const route of this.routes) {
-      const pattern = new RegExp(`^${route.path.replace(/:[^/]+/g, '([^/]+)')}/?$`);
-      const match = pathname.match(pattern);
-
-      if (match && route.method === method) {
-        const params = {};
-        const paramNames = route.path.match(/:[^/]+/g) || [];
-        paramNames.forEach((name, i) => {
-          params[name.slice(1)] = match[i + 1];
-        });
-        req.params = params;
-        return await route.handler(req, env);
-      }
-    }
-
-    return json({ error: 'Not found' }, 404);
-  }
-}
-
-function json(data, status = 200) {
-  return new Response(JSON.stringify(data), {
-    status,
-    headers: { 'Content-Type': 'application/json' },
-  });
-}
-
-async function parseJSON(req) {
-  try {
-    return await req.json();
-  } catch (e) {
-    throw new Error('Invalid JSON');
-  }
-}
-
-// ===========================
-// DATABASE UTILITIES
-// ===========================
-
-async function initDB(env) {
-  // If using D1 (Cloudflare's SQLite), initialize tables if they don't exist
-  if (env.DB) {
-    await env.DB.prepare(`
-      CREATE TABLE IF NOT EXISTS products (
-        id TEXT PRIMARY KEY,
-        name TEXT NOT NULL,
-        price REAL NOT NULL,
-        imageUrl TEXT,
-        sizes TEXT,
-        section TEXT,
-        discountEnabled INTEGER DEFAULT 0,
-        discountPercent REAL DEFAULT 0,
-        outOfStock INTEGER DEFAULT 0,
-        displayOrder INTEGER DEFAULT 0,
-        createdAt TEXT,
-        updatedAt TEXT
-      )
-    `).run().catch(() => {}); // Ignore if table already exists
-
-    await env.DB.prepare(`
-      CREATE TABLE IF NOT EXISTS sections (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL UNIQUE,
-        slug TEXT NOT NULL UNIQUE,
-        createdAt TEXT
-      )
-    `).run().catch(() => {});
-
-    await env.DB.prepare(`
-      CREATE TABLE IF NOT EXISTS promo_codes (
-        id TEXT PRIMARY KEY,
-        code TEXT NOT NULL UNIQUE,
-        discountType TEXT NOT NULL DEFAULT 'percent',
-        discountValue REAL NOT NULL DEFAULT 0,
-        maxUses INTEGER DEFAULT 0,
-        usedCount INTEGER DEFAULT 0,
-        expiryDate TEXT,
-        active INTEGER DEFAULT 1,
-        createdAt TEXT,
-        updatedAt TEXT
-      )
-    `).run().catch(() => {});
-  }
-}
-
-// ===========================
-// MIDDLEWARE
-// ===========================
-
-function validateToken(req, env) {
-  const auth = req.headers.get('Authorization') || '';
-  const token = auth.replace('Bearer ', '');
-
-  if (!token) {
-    throw new Error('Unauthorized: No token provided');
-  }
-
-  // In production, verify the token (you'll need to implement token generation in /api/login)
-  // For now, we'll accept any token that was issued by /api/login
-  return token;
-}
-
-// ===========================
-// ROUTES
-// ===========================
-
-const router = new Router();
-
-// LOGIN - Generate auth token
-router.post('/api/login', async (req, env) => {
-  const body = await parseJSON(req);
-  const { password } = body;
-
-  if (!password) {
-    return json({ error: 'Password required' }, 400);
-  }
-
-  const ADMIN_PASSWORD = env.ADMIN_PASSWORD || 'admin123';
-
-  if (password !== ADMIN_PASSWORD) {
-    return json({ error: 'Invalid password' }, 401);
-  }
-
-  // Generate a simple token (in production, use JWT)
-  const token = `token_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-
-  return json({ token, message: 'Logged in successfully' });
-});
-
-// GET ALL PRODUCTS (sorted by displayOrder)
-router.get('/api/products', async (req, env) => {
-  if (!env.DB) {
-    return json({ products: [] });
-  }
-
-  try {
-    const { results } = await env.DB.prepare(
-      'SELECT * FROM products ORDER BY displayOrder ASC, createdAt ASC'
-    ).all();
-
-    const products = results.map(p => ({
-      id: p.id,
-      name: p.name,
-      price: p.price,
-      imageUrl: p.imageUrl,
-      sizes: p.sizes ? JSON.parse(p.sizes) : [],
-      section: p.section,
-      discountEnabled: p.discountEnabled === 1,
-      discountPercent: p.discountPercent,
-      outOfStock: p.outOfStock === 1,
-      displayOrder: p.displayOrder,
-      createdAt: p.createdAt,
-    }));
-
-    return json({ products });
-  } catch (err) {
-    return json({ error: err.message }, 500);
-  }
-});
-
-// CREATE PRODUCT
-router.post('/api/products', async (req, env) => {
-  validateToken(req, env);
-
-  if (!env.DB) {
-    return json({ error: 'Database not configured' }, 500);
-  }
-
-  try {
-    const body = await parseJSON(req);
-    const { name, price, imageUrl, sizes, section, discountEnabled, discountPercent, outOfStock } = body;
-
-    if (!name || !price) {
-      return json({ error: 'Name and price are required' }, 400);
-    }
-
-    const id = `prod_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    const now = new Date().toISOString();
-
-    // Get the next displayOrder
-    const { results: countResults } = await env.DB.prepare(
-      'SELECT COUNT(*) as count FROM products'
-    ).all();
-    const displayOrder = countResults[0]?.count || 0;
-
-    await env.DB.prepare(
-      `INSERT INTO products (id, name, price, imageUrl, sizes, section, discountEnabled, discountPercent, outOfStock, displayOrder, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-    ).bind(
-      id,
-      name,
-      price,
-      imageUrl,
-      JSON.stringify(sizes || []),
-      section || '',
-      discountEnabled ? 1 : 0,
-      discountPercent || 0,
-      outOfStock ? 1 : 0,
-      displayOrder,
-      now,
-      now
-    ).run();
-
-    return json({ id, message: 'Product created' }, 201);
-  } catch (err) {
-    return json({ error: err.message }, 500);
-  }
-});
-
-// UPDATE PRODUCT
-router.put('/api/products/:id', async (req, env) => {
-  validateToken(req, env);
-
-  if (!env.DB) {
-    return json({ error: 'Database not configured' }, 500);
-  }
-
-  try {
-    const { id } = req.params;
-    const body = await parseJSON(req);
-    const { name, price, imageUrl, sizes, section, discountEnabled, discountPercent, outOfStock } = body;
-    const now = new Date().toISOString();
-
-    const updates = [];
-    const values = [];
-
-    if (name !== undefined) {
-      updates.push('name = ?');
-      values.push(name);
-    }
-    if (price !== undefined) {
-      updates.push('price = ?');
-      values.push(price);
-    }
-    if (imageUrl !== undefined) {
-      updates.push('imageUrl = ?');
-      values.push(imageUrl);
-    }
-    if (sizes !== undefined) {
-      updates.push('sizes = ?');
-      values.push(JSON.stringify(sizes));
-    }
-    if (section !== undefined) {
-      updates.push('section = ?');
-      values.push(section);
-    }
-    if (discountEnabled !== undefined) {
-      updates.push('discountEnabled = ?');
-      values.push(discountEnabled ? 1 : 0);
-    }
-    if (discountPercent !== undefined) {
-      updates.push('discountPercent = ?');
-      values.push(discountPercent);
-    }
-    if (outOfStock !== undefined) {
-      updates.push('outOfStock = ?');
-      values.push(outOfStock ? 1 : 0);
-    }
-
-    if (updates.length === 0) {
-      return json({ error: 'No fields to update' }, 400);
-    }
-
-    updates.push('updatedAt = ?');
-    values.push(now);
-    values.push(id);
-
-    const query = `UPDATE products SET ${updates.join(', ')} WHERE id = ?`;
-    await env.DB.prepare(query).bind(...values).run();
-
-    return json({ message: 'Product updated' });
-  } catch (err) {
-    return json({ error: err.message }, 500);
-  }
-});
-
-// DELETE PRODUCT
-router.delete('/api/products/:id', async (req, env) => {
-  validateToken(req, env);
-
-  if (!env.DB) {
-    return json({ error: 'Database not configured' }, 500);
-  }
-
-  try {
-    const { id } = req.params;
-    await env.DB.prepare('DELETE FROM products WHERE id = ?').bind(id).run();
-    return json({ message: 'Product deleted' });
-  } catch (err) {
-    return json({ error: err.message }, 500);
-  }
-});
-
-// REORDER PRODUCTS
-router.post('/api/products/reorder', async (req, env) => {
-  validateToken(req, env);
-
-  if (!env.DB) {
-    return json({ error: 'Database not configured' }, 500);
-  }
-
-  try {
-    const body = await parseJSON(req);
-    const { order } = body;
-
-    if (!Array.isArray(order)) {
-      return json({ error: 'order must be an array of product IDs' }, 400);
-    }
-
-    const now = new Date().toISOString();
-
-    // Update displayOrder for each product
-    for (let i = 0; i < order.length; i++) {
-      await env.DB.prepare(
-        'UPDATE products SET displayOrder = ?, updatedAt = ? WHERE id = ?'
-      ).bind(i, now, order[i]).run();
-    }
-
-    return json({ message: 'Products reordered successfully' });
-  } catch (err) {
-    return json({ error: err.message }, 500);
-  }
-});
-
-// GET ALL SECTIONS
-router.get('/api/sections', async (req, env) => {
-  if (!env.DB) {
-    return json({ sections: [] });
-  }
-
-  try {
-    const { results } = await env.DB.prepare(
-      'SELECT id, name, slug FROM sections ORDER BY createdAt ASC'
-    ).all();
-
-    const sections = results.map(s => ({
-      id: s.id,
-      name: s.name,
-      slug: s.slug,
-    }));
-
-    return json({ sections });
-  } catch (err) {
-    return json({ error: err.message }, 500);
-  }
-});
-
-// CREATE SECTION
-router.post('/api/sections', async (req, env) => {
-  validateToken(req, env);
-
-  if (!env.DB) {
-    return json({ error: 'Database not configured' }, 500);
-  }
-
-  try {
-    const body = await parseJSON(req);
-    const { name } = body;
-
-    if (!name) {
-      return json({ error: 'Name is required' }, 400);
-    }
-
-    const slug = name.toLowerCase().replace(/\s+/g, '-');
-    const now = new Date().toISOString();
-
-    await env.DB.prepare(
-      'INSERT INTO sections (name, slug, createdAt) VALUES (?, ?, ?)'
-    ).bind(name, slug, now).run();
-
-    return json({ message: 'Section created' }, 201);
-  } catch (err) {
-    if (err.message.includes('UNIQUE')) {
-      return json({ error: 'Section already exists' }, 409);
-    }
-    return json({ error: err.message }, 500);
-  }
-});
-
-// DELETE SECTION
-router.delete('/api/sections/:id', async (req, env) => {
-  validateToken(req, env);
-
-  if (!env.DB) {
-    return json({ error: 'Database not configured' }, 500);
-  }
-
-  try {
-    const { id } = req.params;
-    await env.DB.prepare('DELETE FROM sections WHERE id = ?').bind(id).run();
-    return json({ message: 'Section deleted' });
-  } catch (err) {
-    return json({ error: err.message }, 500);
-  }
-});
-
-// GET ALL PROMO CODES
-router.get('/api/promo-codes', async (req, env) => {
-  validateToken(req, env);
-
-  if (!env.DB) {
-    return json({ promoCodes: [] });
-  }
-
-  try {
-    const { results } = await env.DB.prepare(
-      'SELECT * FROM promo_codes ORDER BY createdAt DESC'
-    ).all();
-
-    const promoCodes = results.map(p => ({
-      id: p.id,
-      code: p.code,
-      discountType: p.discountType,
-      discountValue: p.discountValue,
-      maxUses: p.maxUses,
-      usedCount: p.usedCount,
-      expiryDate: p.expiryDate,
-      active: p.active === 1,
-      createdAt: p.createdAt,
-    }));
-
-    return json({ promoCodes });
-  } catch (err) {
-    return json({ error: err.message }, 500);
-  }
-});
-
-// CREATE PROMO CODE
-router.post('/api/promo-codes', async (req, env) => {
-  validateToken(req, env);
-
-  if (!env.DB) {
-    return json({ error: 'Database not configured' }, 500);
-  }
-
-  try {
-    const body = await parseJSON(req);
-    const { code, discountType, discountValue, maxUses, expiryDate, active } = body;
-
-    if (!code || !String(code).trim()) {
-      return json({ error: 'Code is required' }, 400);
-    }
-    if (!['percent', 'fixed'].includes(discountType)) {
-      return json({ error: 'discountType must be "percent" or "fixed"' }, 400);
-    }
-    const value = Number(discountValue);
-    if (!Number.isFinite(value) || value <= 0) {
-      return json({ error: 'discountValue must be a positive number' }, 400);
-    }
-    if (discountType === 'percent' && value > 100) {
-      return json({ error: 'Percent discount cannot exceed 100' }, 400);
-    }
-
-    const id = `promo_${Date.now()}_${Math.random().toString(36).substring(7)}`;
-    const now = new Date().toISOString();
-    const normalizedCode = String(code).trim().toUpperCase();
-    const maxUsesNum = Math.max(0, Math.floor(Number(maxUses) || 0));
-
-    await env.DB.prepare(
-      `INSERT INTO promo_codes (id, code, discountType, discountValue, maxUses, usedCount, expiryDate, active, createdAt, updatedAt)
-       VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`
-    ).bind(
-      id,
-      normalizedCode,
-      discountType,
-      value,
-      maxUsesNum,
-      expiryDate || null,
-      active === false ? 0 : 1,
-      now,
-      now
-    ).run();
-
-    return json({ id, message: 'Promo code created' }, 201);
-  } catch (err) {
-    if (err.message && err.message.includes('UNIQUE')) {
-      return json({ error: 'A promo code with this code already exists' }, 409);
-    }
-    return json({ error: err.message }, 500);
-  }
-});
-
-// UPDATE PROMO CODE
-router.put('/api/promo-codes/:id', async (req, env) => {
-  validateToken(req, env);
-
-  if (!env.DB) {
-    return json({ error: 'Database not configured' }, 500);
-  }
-
-  try {
-    const { id } = req.params;
-    const body = await parseJSON(req);
-    const { code, discountType, discountValue, maxUses, expiryDate, active } = body;
-    const now = new Date().toISOString();
-
-    const updates = [];
-    const values = [];
-
-    if (code !== undefined) {
-      if (!String(code).trim()) {
-        return json({ error: 'Code cannot be empty' }, 400);
-      }
-      updates.push('code = ?');
-      values.push(String(code).trim().toUpperCase());
-    }
-    if (discountType !== undefined) {
-      if (!['percent', 'fixed'].includes(discountType)) {
-        return json({ error: 'discountType must be "percent" or "fixed"' }, 400);
-      }
-      updates.push('discountType = ?');
-      values.push(discountType);
-    }
-    if (discountValue !== undefined) {
-      const value = Number(discountValue);
-      if (!Number.isFinite(value) || value <= 0) {
-        return json({ error: 'discountValue must be a positive number' }, 400);
-      }
-      updates.push('discountValue = ?');
-      values.push(value);
-    }
-    if (maxUses !== undefined) {
-      updates.push('maxUses = ?');
-      values.push(Math.max(0, Math.floor(Number(maxUses) || 0)));
-    }
-    if (expiryDate !== undefined) {
-      updates.push('expiryDate = ?');
-      values.push(expiryDate || null);
-    }
-    if (active !== undefined) {
-      updates.push('active = ?');
-      values.push(active ? 1 : 0);
-    }
-
-    if (updates.length === 0) {
-      return json({ error: 'No fields to update' }, 400);
-    }
-
-    updates.push('updatedAt = ?');
-    values.push(now);
-    values.push(id);
-
-    const query = `UPDATE promo_codes SET ${updates.join(', ')} WHERE id = ?`;
-    await env.DB.prepare(query).bind(...values).run();
-
-    return json({ message: 'Promo code updated' });
-  } catch (err) {
-    if (err.message && err.message.includes('UNIQUE')) {
-      return json({ error: 'A promo code with this code already exists' }, 409);
-    }
-    return json({ error: err.message }, 500);
-  }
-});
-
-// DELETE PROMO CODE
-router.delete('/api/promo-codes/:id', async (req, env) => {
-  validateToken(req, env);
-
-  if (!env.DB) {
-    return json({ error: 'Database not configured' }, 500);
-  }
-
-  try {
-    const { id } = req.params;
-    await env.DB.prepare('DELETE FROM promo_codes WHERE id = ?').bind(id).run();
-    return json({ message: 'Promo code deleted' });
-  } catch (err) {
-    return json({ error: err.message }, 500);
-  }
-});
-
-// VALIDATE PROMO CODE (public - used at checkout)
-router.post('/api/promo-codes/validate', async (req, env) => {
-  if (!env.DB) {
-    return json({ error: 'Database not configured' }, 500);
-  }
-
-  try {
-    const body = await parseJSON(req);
-    const { code } = body;
-
-    if (!code || !String(code).trim()) {
-      return json({ error: 'Code is required' }, 400);
-    }
-
-    const normalizedCode = String(code).trim().toUpperCase();
-
-    const { results } = await env.DB.prepare(
-      'SELECT * FROM promo_codes WHERE UPPER(code) = ?'
-    ).bind(normalizedCode).all();
-
-    const promo = results[0];
-
-    if (!promo) {
-      return json({ error: 'Invalid promo code' }, 404);
-    }
-    if (promo.active !== 1) {
-      return json({ error: 'This promo code is no longer active' }, 400);
-    }
-    if (promo.expiryDate) {
-      const expiry = new Date(promo.expiryDate);
-      // Codes remain valid through the end of the expiry day
-      expiry.setHours(23, 59, 59, 999);
-      if (expiry.getTime() < Date.now()) {
-        return json({ error: 'This promo code has expired' }, 400);
-      }
-    }
-    if (promo.maxUses > 0 && promo.usedCount >= promo.maxUses) {
-      return json({ error: 'This promo code has reached its usage limit' }, 400);
-    }
-
-    return json({
-      valid: true,
-      code: promo.code,
-      discountType: promo.discountType,
-      discountValue: promo.discountValue,
-    });
-  } catch (err) {
-    return json({ error: err.message }, 500);
-  }
-});
-
-// HEALTH CHECK
-router.get('/health', async (req, env) => {
-  return json({ status: 'ok', timestamp: new Date().toISOString() });
-});
-
-// ===========================
-// MAIN HANDLER
-// ===========================
-
 export default {
-  async fetch(request, env, ctx) {
-    // Initialize database
-    await initDB(env);
+  async fetch(request, env) {
+    const url = new URL(request.url);
 
-    // Handle CORS preflight
-    if (request.method === 'OPTIONS') {
-      return new Response(null, {
-        headers: {
-          'Access-Control-Allow-Origin': '*',
-          'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
-          'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-        },
+    // ================= CORS =================
+    const corsHeaders = {
+      "Access-Control-Allow-Origin": "*",
+      "Access-Control-Allow-Methods": "GET,POST,PUT,DELETE,OPTIONS",
+      "Access-Control-Allow-Headers": "Content-Type, Authorization",
+    };
+    if (request.method === "OPTIONS") {
+      return new Response("", { headers: corsHeaders });
+    }
+
+    const json = (obj, status = 200) =>
+      new Response(JSON.stringify(obj), {
+        status,
+        headers: { "Content-Type": "application/json", ...corsHeaders },
+      });
+
+    // ================= HELPERS =================
+    function slugify(str) {
+      return String(str)
+        .toLowerCase()
+        .trim()
+        .replace(/[^a-z0-9]+/g, "-")
+        .replace(/(^-|-$)/g, "");
+    }
+
+    // ================= AUTH =================
+    async function sign(payload) {
+      const enc = new TextEncoder();
+      const secret = String(env.SESSION_SECRET || "");
+      if (!secret) throw new Error("Missing SESSION_SECRET");
+
+      const key = await crypto.subtle.importKey(
+        "raw",
+        enc.encode(secret),
+        { name: "HMAC", hash: "SHA-256" },
+        false,
+        ["sign"]
+      );
+
+      const sig = await crypto.subtle.sign("HMAC", key, enc.encode(payload));
+      return btoa(String.fromCharCode(...new Uint8Array(sig)))
+        .replaceAll("+", "-")
+        .replaceAll("/", "_")
+        .replaceAll("=", "");
+    }
+
+    async function makeToken(role, expMs) {
+      const payload = role + "|" + String(expMs);
+      const sig = await sign(payload);
+      return payload + "." + sig;
+    }
+
+    async function verifyToken(token) {
+      if (!token) return false;
+      const parts = token.split(".");
+      if (parts.length !== 2) return false;
+
+      const payload = parts[0];
+      const sig = parts[1];
+      if (sig !== (await sign(payload))) return false;
+
+      const [role, exp] = payload.split("|");
+      if (role !== "admin") return false;
+      if (Date.now() > Number(exp)) return false;
+
+      return true;
+    }
+
+    function getBearerToken(req) {
+      const h = req.headers.get("Authorization") || "";
+      return h.toLowerCase().startsWith("bearer ") ? h.slice(7).trim() : null;
+    }
+
+    async function requireAuth(req) {
+      return await verifyToken(getBearerToken(req));
+    }
+
+    // ================= ROUTES =================
+
+    if (url.pathname === "/api/health") return json({ ok: true });
+
+    // ---------- LOGIN ----------
+    if (url.pathname === "/api/login" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      if (String(body.password) !== String(env.ADMIN_PASSWORD)) {
+        return json({ ok: false, error: "Invalid password" }, 401);
+      }
+      const token = await makeToken(
+        "admin",
+        Date.now() + 7 * 24 * 60 * 60 * 1000
+      );
+      return json({ ok: true, token });
+    }
+
+    // ---------- SECTIONS (PUBLIC) ----------
+    if (url.pathname === "/api/sections" && request.method === "GET") {
+      const r = await env.DB
+        .prepare("SELECT id,name,slug FROM sections ORDER BY position ASC")
+        .all();
+      return json({ ok: true, sections: r.results || [] });
+    }
+
+    // ---------- SECTIONS (ADMIN CREATE) ----------
+    if (url.pathname === "/api/sections" && request.method === "POST") {
+      if (!(await requireAuth(request)))
+        return json({ ok: false, error: "Unauthorized" }, 401);
+
+      const body = await request.json().catch(() => ({}));
+      const name = String(body.name || "").trim();
+      if (!name) return json({ ok: false, error: "Name required" }, 400);
+
+      const slug = slugify(name);
+      const last = await env.DB
+        .prepare("SELECT MAX(position) as max FROM sections")
+        .first();
+      const position = (last?.max ?? 0) + 1;
+
+      await env.DB
+        .prepare(
+          "INSERT INTO sections (name,slug,position) VALUES (?,?,?)"
+        )
+        .bind(name, slug, position)
+        .run();
+
+      return json({ ok: true });
+    }
+
+    // ---------- SECTIONS DELETE ----------
+    if (url.pathname.startsWith("/api/sections/") && request.method === "DELETE") {
+      if (!(await requireAuth(request)))
+        return json({ ok: false, error: "Unauthorized" }, 401);
+
+      const id = url.pathname.split("/").pop();
+      await env.DB.prepare("DELETE FROM sections WHERE id=?").bind(id).run();
+      return json({ ok: true });
+    }
+
+    // ---------- SECTIONS REORDER ----------
+    if (url.pathname === "/api/sections/reorder" && request.method === "PUT") {
+      if (!(await requireAuth(request)))
+        return json({ ok: false, error: "Unauthorized" }, 401);
+
+      const { order } = await request.json();
+      await env.DB.batch(
+        order.map((s) =>
+          env.DB
+            .prepare("UPDATE sections SET position=? WHERE id=?")
+            .bind(s.position, s.id)
+        )
+      );
+      return json({ ok: true });
+    }
+
+    // ---------- PRODUCTS (PUBLIC) ----------
+    if (url.pathname === "/api/products" && request.method === "GET") {
+      const r = await env.DB
+        .prepare("SELECT * FROM products ORDER BY position ASC")
+        .all();
+
+      const products = (r.results || []).map((p) => ({
+        id: p.id,
+        name: p.name,
+        price: Number(p.price),
+        sizes: JSON.parse(p.sizes || "[]"),
+        imageUrl: p.imageUrl,
+        discountEnabled: !!p.discountEnabled,
+        discountPercent: Number(p.discountPercent || 0),
+        outOfStock: !!p.outOfStock,
+        section: p.section || null,
+        createdAt: p.createdAt,
+      }));
+
+      return json({ ok: true, products });
+    }
+
+    // ---------- PRODUCTS (ADMIN CREATE) ----------
+    if (url.pathname === "/api/products" && request.method === "POST") {
+      if (!(await requireAuth(request)))
+        return json({ ok: false, error: "Unauthorized" }, 401);
+
+      const body = await request.json();
+      const id = crypto.randomUUID();
+
+      const name = String(body.name).trim();
+      const price = Math.round(Number(body.price));
+      const sizes = body.sizes || [];
+      const imageUrl = String(body.imageUrl).trim();
+      const section = String(body.section || "").trim();
+
+      if (!name || !imageUrl || !price || !sizes.length) {
+        return json({ ok: false, error: "Invalid payload" }, 400);
+      }
+
+      const last = await env.DB
+        .prepare("SELECT MAX(position) as max FROM products")
+        .first();
+      const position = (last?.max ?? -1) + 1;
+
+      await env.DB
+        .prepare(
+          `INSERT INTO products
+           (id,name,price,sizes,imageUrl,discountEnabled,discountPercent,outOfStock,section,position,createdAt)
+           VALUES (?,?,?,?,?,?,?,?,?,?,?)`
+        )
+        .bind(
+          id,
+          name,
+          price,
+          JSON.stringify(sizes),
+          imageUrl,
+          body.discountEnabled ? 1 : 0,
+          Number(body.discountPercent || 0),
+          body.outOfStock ? 1 : 0,
+          section,
+          position,
+          new Date().toISOString()
+        )
+        .run();
+
+      return json({ ok: true, id });
+    }
+
+    // ---------- PRODUCTS REORDER ----------
+    if (url.pathname === "/api/products/reorder" && request.method === "POST") {
+      if (!(await requireAuth(request)))
+        return json({ ok: false, error: "Unauthorized" }, 401);
+
+      const { order } = await request.json().catch(() => ({}));
+      if (!Array.isArray(order)) {
+        return json({ ok: false, error: "order must be an array of ids" }, 400);
+      }
+
+      await env.DB.batch(
+        order.map((id, index) =>
+          env.DB
+            .prepare("UPDATE products SET position=? WHERE id=?")
+            .bind(index, id)
+        )
+      );
+
+      return json({ ok: true });
+    }
+
+    // ---------- PRODUCTS (ADMIN UPDATE) ----------
+    if (url.pathname.startsWith("/api/products/") && request.method === "PUT") {
+      if (!(await requireAuth(request)))
+        return json({ ok: false, error: "Unauthorized" }, 401);
+
+      const id = url.pathname.split("/").pop();
+      const body = await request.json();
+      const current = await env.DB
+        .prepare("SELECT * FROM products WHERE id=?")
+        .bind(id)
+        .first();
+
+      if (!current) return json({ ok: false, error: "Not found" }, 404);
+
+      await env.DB
+        .prepare(
+          `UPDATE products SET
+           name=?, price=?, sizes=?, imageUrl=?,
+           discountEnabled=?, discountPercent=?, outOfStock=?, section=?
+           WHERE id=?`
+        )
+        .bind(
+          body.name ?? current.name,
+          body.price ?? current.price,
+          JSON.stringify(body.sizes ?? JSON.parse(current.sizes)),
+          body.imageUrl ?? current.imageUrl,
+          body.discountEnabled ?? current.discountEnabled,
+          body.discountPercent ?? current.discountPercent,
+          body.outOfStock ?? current.outOfStock,
+          body.section ?? current.section,
+          id
+        )
+        .run();
+
+      return json({ ok: true });
+    }
+
+    // ---------- PRODUCTS (ADMIN DELETE) ----------
+    if (url.pathname.startsWith("/api/products/") && request.method === "DELETE") {
+      if (!(await requireAuth(request)))
+        return json({ ok: false, error: "Unauthorized" }, 401);
+
+      const id = url.pathname.split("/").pop();
+      await env.DB.prepare("DELETE FROM products WHERE id=?").bind(id).run();
+      return json({ ok: true });
+    }
+
+    // ================= PROMO CODES =================
+
+    // ---------- GET ALL PROMO CODES (ADMIN) ----------
+    if (url.pathname === "/api/promo-codes" && request.method === "GET") {
+      if (!(await requireAuth(request)))
+        return json({ ok: false, error: "Unauthorized" }, 401);
+
+      const r = await env.DB
+        .prepare("SELECT * FROM promo_codes ORDER BY createdAt DESC")
+        .all();
+
+      const promoCodes = (r.results || []).map((p) => ({
+        id: p.id,
+        code: p.code,
+        discountType: p.discountType,
+        discountValue: Number(p.discountValue),
+        maxUses: Number(p.maxUses),
+        usedCount: Number(p.usedCount),
+        expiryDate: p.expiryDate,
+        active: !!p.active,
+        createdAt: p.createdAt,
+      }));
+
+      return json({ ok: true, promoCodes });
+    }
+
+    // ---------- CREATE PROMO CODE (ADMIN) ----------
+    if (url.pathname === "/api/promo-codes" && request.method === "POST") {
+      if (!(await requireAuth(request)))
+        return json({ ok: false, error: "Unauthorized" }, 401);
+
+      const body = await request.json().catch(() => ({}));
+      const { code, discountType, discountValue, maxUses, expiryDate } = body;
+
+      if (!code || !discountType || !discountValue) {
+        return json({ ok: false, error: "Missing required fields" }, 400);
+      }
+
+      if (!["percent", "fixed"].includes(discountType)) {
+        return json(
+          { ok: false, error: "Invalid discountType" },
+          400
+        );
+      }
+
+      const id = crypto.randomUUID();
+      const normalizedCode = String(code).trim().toUpperCase();
+
+      await env.DB
+        .prepare(
+          `INSERT INTO promo_codes
+           (id, code, discountType, discountValue, maxUses, usedCount, expiryDate, active, createdAt)
+           VALUES (?, ?, ?, ?, ?, 0, ?, 1, ?)`
+        )
+        .bind(
+          id,
+          normalizedCode,
+          discountType,
+          Number(discountValue),
+          Math.max(0, Math.floor(Number(maxUses) || 0)),
+          expiryDate || null,
+          new Date().toISOString()
+        )
+        .run();
+
+      return json({ ok: true, id });
+    }
+
+    // ---------- UPDATE PROMO CODE (ADMIN) ----------
+    if (url.pathname.startsWith("/api/promo-codes/") && url.pathname !== "/api/promo-codes/validate" && request.method === "PUT") {
+      if (!(await requireAuth(request)))
+        return json({ ok: false, error: "Unauthorized" }, 401);
+
+      const id = url.pathname.split("/").pop();
+      const body = await request.json().catch(() => ({}));
+
+      const updates = [];
+      const values = [];
+
+      if (body.code !== undefined) {
+        updates.push("code = ?");
+        values.push(String(body.code).trim().toUpperCase());
+      }
+      if (body.discountType !== undefined) {
+        updates.push("discountType = ?");
+        values.push(body.discountType);
+      }
+      if (body.discountValue !== undefined) {
+        updates.push("discountValue = ?");
+        values.push(Number(body.discountValue));
+      }
+      if (body.maxUses !== undefined) {
+        updates.push("maxUses = ?");
+        values.push(Math.max(0, Math.floor(Number(body.maxUses) || 0)));
+      }
+      if (body.expiryDate !== undefined) {
+        updates.push("expiryDate = ?");
+        values.push(body.expiryDate || null);
+      }
+      if (body.active !== undefined) {
+        updates.push("active = ?");
+        values.push(body.active ? 1 : 0);
+      }
+
+      if (updates.length === 0) {
+        return json({ ok: false, error: "No fields to update" }, 400);
+      }
+
+      values.push(id);
+      const query = `UPDATE promo_codes SET ${updates.join(", ")} WHERE id = ?`;
+      await env.DB.prepare(query).bind(...values).run();
+
+      return json({ ok: true });
+    }
+
+    // ---------- DELETE PROMO CODE (ADMIN) ----------
+    if (url.pathname.startsWith("/api/promo-codes/") && url.pathname !== "/api/promo-codes/validate" && request.method === "DELETE") {
+      if (!(await requireAuth(request)))
+        return json({ ok: false, error: "Unauthorized" }, 401);
+
+      const id = url.pathname.split("/").pop();
+      await env.DB.prepare("DELETE FROM promo_codes WHERE id = ?").bind(id).run();
+
+      return json({ ok: true });
+    }
+
+    // ---------- VALIDATE PROMO CODE (PUBLIC) ----------
+    if (url.pathname === "/api/promo-codes/validate" && request.method === "POST") {
+      const body = await request.json().catch(() => ({}));
+      const { code } = body;
+
+      if (!code) {
+        return json({ ok: false, error: "Code is required" }, 400);
+      }
+
+      const normalizedCode = String(code).trim().toUpperCase();
+      const promo = await env.DB
+        .prepare("SELECT * FROM promo_codes WHERE UPPER(code) = ? LIMIT 1")
+        .bind(normalizedCode)
+        .first();
+
+      if (!promo) {
+        return json({ ok: false, error: "Invalid promo code" }, 404);
+      }
+
+      if (!promo.active) {
+        return json({ ok: false, error: "This promo code is no longer active" }, 400);
+      }
+
+      if (promo.expiryDate) {
+        const expiry = new Date(promo.expiryDate);
+        expiry.setHours(23, 59, 59, 999);
+        if (expiry.getTime() < Date.now()) {
+          return json({ ok: false, error: "This promo code has expired" }, 400);
+        }
+      }
+
+      if (promo.maxUses > 0 && promo.usedCount >= promo.maxUses) {
+        return json(
+          { ok: false, error: "This promo code has reached its usage limit" },
+          400
+        );
+      }
+
+      return json({
+        ok: true,
+        valid: true,
+        code: promo.code,
+        discountType: promo.discountType,
+        discountValue: Number(promo.discountValue),
       });
     }
 
-    try {
-      const response = await router.route(request, env);
-
-      // Add CORS headers to response
-      response.headers.set('Access-Control-Allow-Origin', '*');
-      response.headers.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-      response.headers.set('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-
-      return response;
-    } catch (err) {
-      return json(
-        { error: err.message || 'Internal server error' },
-        err.message.includes('Unauthorized') ? 401 : 500
-      );
-    }
+    return json({ ok: false, error: "Not found" }, 404);
   },
 };
