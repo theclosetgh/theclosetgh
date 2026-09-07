@@ -270,6 +270,62 @@
 
   <p class="tiny" id="sectionsHint" style="margin-top:10px;"></p>
 </div>
+
+    <div class="card">
+      <h2 style="margin:0 0 10px;">Manage Promo Codes</h2>
+      <p class="tiny" style="margin:0 0 10px;">Create discount codes customers can apply at checkout. Codes are case-insensitive. Max uses of 0 means unlimited.</p>
+
+      <form id="promoForm">
+        <div class="row">
+          <div>
+            <label>Code</label>
+            <input type="text" id="promoCode" placeholder="e.g. SAVE10" required>
+          </div>
+          <div>
+            <label>Discount Type</label>
+            <select id="promoDiscountType">
+              <option value="percent">Percentage (%)</option>
+              <option value="fixed">Fixed amount (GHC)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="row">
+          <div>
+            <label>Discount Value</label>
+            <input type="number" id="promoDiscountValue" min="0.01" step="0.01" placeholder="e.g. 10" required>
+          </div>
+          <div>
+            <label>Max Uses (0 = unlimited)</label>
+            <input type="number" id="promoMaxUses" min="0" step="1" value="0">
+          </div>
+        </div>
+
+        <label>Expiry Date (optional)</label>
+        <input type="date" id="promoExpiryDate">
+
+        <button type="submit" id="promoSubmitBtn">Add Promo Code</button>
+      </form>
+
+      <div class="hr"></div>
+
+      <div class="table-wrapper">
+        <table>
+          <thead>
+            <tr>
+              <th>Code</th>
+              <th>Discount</th>
+              <th>Usage</th>
+              <th>Expiry</th>
+              <th>Status</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="promoList"></tbody>
+        </table>
+      </div>
+    </div>
+
     <div class="card">
       <h2 style="margin:0 0 10px;">Current Products</h2>
       <p class="tiny" id="apiHint" style="margin:0 0 10px;"></p>
@@ -357,6 +413,55 @@
 </div>
 
 <div class="toast" id="toast">Done</div>
+
+<!-- PROMO EDIT MODAL -->
+<div class="modalOverlay" id="promoEditOverlay" aria-hidden="true">
+  <div class="modal" role="dialog" aria-modal="true" aria-labelledby="promoEditTitle">
+    <div class="modalHead">
+      <h3 id="promoEditTitle">Edit Promo Code</h3>
+      <button type="button" id="closePromoEdit" class="btnSmall ghost">Close</button>
+    </div>
+
+    <div class="modalBody">
+      <div class="row">
+        <div>
+          <label>Code</label>
+          <input type="text" id="editPromoCode">
+        </div>
+        <div>
+          <label>Discount Type</label>
+          <select id="editPromoDiscountType">
+            <option value="percent">Percentage (%)</option>
+            <option value="fixed">Fixed amount (GHC)</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="row">
+        <div>
+          <label>Discount Value</label>
+          <input type="number" id="editPromoDiscountValue" min="0.01" step="0.01">
+        </div>
+        <div>
+          <label>Max Uses (0 = unlimited)</label>
+          <input type="number" id="editPromoMaxUses" min="0" step="1">
+        </div>
+      </div>
+
+      <label>Expiry Date (optional)</label>
+      <input type="date" id="editPromoExpiryDate">
+
+      <label style="display:flex;align-items:center;gap:10px;font-weight:900;">
+        <input type="checkbox" id="editPromoActive" style="width:auto; transform:scale(1.2); margin:0;">
+        Active
+      </label>
+    </div>
+
+    <div class="modalFoot">
+      <button type="button" id="savePromoEdit" class="btnSmall" style="background:#000;color:#fff;">Save Changes</button>
+    </div>
+  </div>
+</div>
 
 <script>
   // ===========================
@@ -505,6 +610,223 @@ sectionForm.addEventListener("submit", async (e) => {
     alert("❌ Failed to add section: " + (err.message || "Error"));
   }
 });
+
+  // ===========================
+  // PROMO CODES
+  // ===========================
+  const promoForm = document.getElementById("promoForm");
+  const promoSubmitBtn = document.getElementById("promoSubmitBtn");
+  const promoList = document.getElementById("promoList");
+
+  const promoEditOverlay = document.getElementById("promoEditOverlay");
+  const closePromoEditBtn = document.getElementById("closePromoEdit");
+  const savePromoEditBtn = document.getElementById("savePromoEdit");
+  const editPromoCode = document.getElementById("editPromoCode");
+  const editPromoDiscountType = document.getElementById("editPromoDiscountType");
+  const editPromoDiscountValue = document.getElementById("editPromoDiscountValue");
+  const editPromoMaxUses = document.getElementById("editPromoMaxUses");
+  const editPromoExpiryDate = document.getElementById("editPromoExpiryDate");
+  const editPromoActive = document.getElementById("editPromoActive");
+
+  let promoCache = [];
+  let editingPromoId = null;
+
+  function promoDiscountLabel(p){
+    return p.discountType === "percent"
+      ? `${Number(p.discountValue)}%`
+      : `GHC ${Number(p.discountValue)}`;
+  }
+
+  async function refreshPromoList(){
+    const data = await api("/api/promo-codes", { method: "GET", headers: authedHeaders() });
+    const promos = Array.isArray(data.promoCodes) ? data.promoCodes : [];
+    promoCache = promos;
+
+    if(promos.length === 0){
+      promoList.innerHTML = `<tr><td colspan="6">No promo codes yet.</td></tr>`;
+      return;
+    }
+
+    promoList.innerHTML = promos.map(p => {
+      const status = p.active
+        ? `<span class="pill on">ACTIVE</span>`
+        : `<span class="pill off">INACTIVE</span>`;
+      const usage = p.maxUses > 0
+        ? `${p.usedCount} / ${p.maxUses}`
+        : `${p.usedCount} / ∞`;
+      const expiry = p.expiryDate
+        ? escapeHtml(String(p.expiryDate).slice(0, 10))
+        : "—";
+
+      return `
+        <tr data-id="${escapeHtml(p.id)}">
+          <td style="font-weight:900;">${escapeHtml(p.code)}</td>
+          <td>${escapeHtml(promoDiscountLabel(p))}</td>
+          <td>${escapeHtml(usage)}</td>
+          <td>${expiry}</td>
+          <td>${status}</td>
+          <td class="actions">
+            <button type="button" class="btnSmall" data-action="promo-edit" style="font-size:.75rem;padding:4px 6px;">Edit</button>
+            <button type="button" class="btnSmall" data-action="promo-toggle" style="font-size:.75rem;padding:4px 6px;">${p.active ? "Deactivate" : "Activate"}</button>
+            <button type="button" class="btnSmall danger" data-action="promo-delete" style="font-size:.75rem;padding:4px 6px;">Delete</button>
+          </td>
+        </tr>
+      `;
+    }).join("");
+  }
+
+  // ---------- ADD PROMO CODE ----------
+  promoForm.addEventListener("submit", async (e) => {
+    e.preventDefault();
+    promoSubmitBtn.disabled = true;
+
+    try{
+      const code = document.getElementById("promoCode").value.trim();
+      const discountType = document.getElementById("promoDiscountType").value;
+      const discountValue = Number(document.getElementById("promoDiscountValue").value);
+      const maxUses = Math.max(0, Math.floor(Number(document.getElementById("promoMaxUses").value || 0)));
+      const expiryDate = document.getElementById("promoExpiryDate").value || null;
+
+      if(!code) throw new Error("Code is required.");
+      if(!Number.isFinite(discountValue) || discountValue <= 0) throw new Error("Discount value must be a positive number.");
+      if(discountType === "percent" && discountValue > 100) throw new Error("Percent discount cannot exceed 100.");
+
+      await api("/api/promo-codes", {
+        method: "POST",
+        headers: authedHeaders(),
+        body: JSON.stringify({ code, discountType, discountValue, maxUses, expiryDate })
+      });
+
+      showToast("Promo code added");
+      promoForm.reset();
+      document.getElementById("promoMaxUses").value = 0;
+      await refreshPromoList();
+    }catch(err){
+      alert("❌ Failed to add promo code: " + (err.message || "Error"));
+    }finally{
+      promoSubmitBtn.disabled = false;
+    }
+  });
+
+  // ---------- PROMO TABLE ACTIONS ----------
+  promoList.addEventListener("click", async (e)=>{
+    const btn = e.target.closest("button[data-action]");
+    if(!btn) return;
+
+    const row = btn.closest("tr[data-id]");
+    const id = row?.dataset?.id;
+    if(!id) return;
+
+    try{
+      if(btn.dataset.action === "promo-edit"){
+        const promo = promoCache.find(x => String(x.id) === String(id));
+        if(!promo){ alert("Promo code not found."); return; }
+        openPromoEditModal(promo);
+        return;
+      }
+
+      if(btn.dataset.action === "promo-toggle"){
+        const promo = promoCache.find(x => String(x.id) === String(id));
+        if(!promo){ alert("Promo code not found."); return; }
+        await api("/api/promo-codes/" + encodeURIComponent(id), {
+          method: "PUT",
+          headers: authedHeaders(),
+          body: JSON.stringify({ active: !promo.active })
+        });
+        showToast(promo.active ? "Deactivated" : "Activated");
+        await refreshPromoList();
+        return;
+      }
+
+      if(btn.dataset.action === "promo-delete"){
+        const promo = promoCache.find(x => String(x.id) === String(id));
+        if(!confirm(`Delete promo code "${promo ? promo.code : id}"?`)) return;
+        await api("/api/promo-codes/" + encodeURIComponent(id), {
+          method: "DELETE",
+          headers: authedHeaders()
+        });
+        showToast("Deleted");
+        await refreshPromoList();
+        return;
+      }
+    }catch(err){
+      alert("❌ Action failed: " + (err.message || "Try again"));
+      const msg = String(err.message || "").toLowerCase();
+      if(msg.includes("unauthorized") || msg.includes("401")){
+        clearToken();
+        setLoggedInUI(false);
+      }
+    }
+  });
+
+  // ---------- PROMO EDIT MODAL ----------
+  function openPromoEditModal(promo){
+    editingPromoId = promo.id;
+    editPromoCode.value = promo.code || "";
+    editPromoDiscountType.value = promo.discountType || "percent";
+    editPromoDiscountValue.value = Number(promo.discountValue || 0);
+    editPromoMaxUses.value = Number(promo.maxUses || 0);
+    editPromoExpiryDate.value = promo.expiryDate ? String(promo.expiryDate).slice(0, 10) : "";
+    editPromoActive.checked = !!promo.active;
+
+    promoEditOverlay.classList.add("show");
+    promoEditOverlay.setAttribute("aria-hidden","false");
+  }
+
+  function closePromoEditModal(){
+    editingPromoId = null;
+    promoEditOverlay.classList.remove("show");
+    promoEditOverlay.setAttribute("aria-hidden","true");
+  }
+
+  closePromoEditBtn.addEventListener("click", closePromoEditModal);
+  promoEditOverlay.addEventListener("click", (e)=>{
+    if(e.target === promoEditOverlay) closePromoEditModal();
+  });
+  document.addEventListener("keydown", (e)=>{
+    if(e.key === "Escape" && promoEditOverlay.classList.contains("show")) closePromoEditModal();
+  });
+
+  savePromoEditBtn.addEventListener("click", async ()=>{
+    if(!editingPromoId) return;
+
+    savePromoEditBtn.disabled = true;
+    savePromoEditBtn.textContent = "Saving...";
+
+    try{
+      const code = editPromoCode.value.trim();
+      const discountType = editPromoDiscountType.value;
+      const discountValue = Number(editPromoDiscountValue.value);
+      const maxUses = Math.max(0, Math.floor(Number(editPromoMaxUses.value || 0)));
+      const expiryDate = editPromoExpiryDate.value || null;
+      const active = !!editPromoActive.checked;
+
+      if(!code) throw new Error("Code is required.");
+      if(!Number.isFinite(discountValue) || discountValue <= 0) throw new Error("Discount value must be a positive number.");
+      if(discountType === "percent" && discountValue > 100) throw new Error("Percent discount cannot exceed 100.");
+
+      await api("/api/promo-codes/" + encodeURIComponent(editingPromoId), {
+        method: "PUT",
+        headers: authedHeaders(),
+        body: JSON.stringify({ code, discountType, discountValue, maxUses, expiryDate, active })
+      });
+
+      showToast("Saved");
+      closePromoEditModal();
+      await refreshPromoList();
+    }catch(err){
+      alert("❌ Save failed: " + (err.message || "Try again"));
+      const msg = String(err.message || "").toLowerCase();
+      if(msg.includes("unauthorized") || msg.includes("401")){
+        clearToken();
+        setLoggedInUI(false);
+      }
+    }finally{
+      savePromoEditBtn.disabled = false;
+      savePromoEditBtn.textContent = "Save Changes";
+    }
+  });
+
   function setLoggedInUI(isIn){
     if(isIn){
       loginCard.classList.add("hide");
@@ -515,6 +837,7 @@ sectionForm.addEventListener("submit", async (e) => {
       logoutBtn.classList.add("hide");
       loginCard.classList.remove("hide");
       list.innerHTML = "";
+      promoList.innerHTML = "";
     }
   }
 
@@ -569,6 +892,7 @@ sectionForm.addEventListener("submit", async (e) => {
   setLoggedInUI(true);
   await loadSections();
   await refreshList().catch(()=>{});
+  await refreshPromoList().catch(()=>{});
 })();
 
   // ---------- LOGIN ----------
@@ -590,6 +914,7 @@ sectionForm.addEventListener("submit", async (e) => {
       loadSections();
       showToast("Logged in");
       await refreshList();
+      await refreshPromoList().catch(()=>{});
       loginForm.reset();
     }catch(err){
       alert("❌ Login failed: " + (err.message || "Try again"));
