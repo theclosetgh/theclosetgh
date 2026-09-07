@@ -153,6 +153,17 @@
 
   .cartFoot{border-top:1px solid rgba(0,0,0,.08);padding:14px 16px 16px;background:#fff}
   .totals{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:12px;font-weight:900}
+  .totals.sub{margin-bottom:6px;font-weight:700;font-size:.92rem;color:#333}
+  .totals.disc{margin-bottom:6px;font-weight:900;font-size:.92rem;color:#0b6b2a}
+  .promoRow{display:flex;gap:8px;margin-bottom:10px}
+  .promoRow input{flex:1;margin-top:0;padding:10px;width:auto;border:1px solid #ddd;border-radius:10px;text-transform:uppercase}
+  .promoRow button{width:auto;padding:10px 14px;border:none;border-radius:10px;background:#111;color:#fff;font-weight:900;cursor:pointer;white-space:nowrap}
+  .promoRow button:hover{opacity:.92}
+  .promoMsg{font-size:.85rem;font-weight:900;margin:-4px 0 10px;display:none;line-height:1.35}
+  .promoMsg.ok{color:#0b6b2a;display:block}
+  .promoMsg.err{color:#b00020;display:block}
+  .promoApplied{display:flex;align-items:center;justify-content:space-between;gap:10px;background:#e9fff1;border:1px solid #bfeccc;color:#0b6b2a;border-radius:10px;padding:8px 10px;font-weight:900;font-size:.88rem;margin-bottom:10px}
+  .promoApplied button{border:none;background:transparent;color:#0b6b2a;cursor:pointer;font-weight:900;padding:2px 6px}
   .note{font-size:.88rem;color:#666;margin-bottom:12px;line-height:1.35}
   .cartActions{display:flex;gap:10px}
   .cartActions button,.cartActions a{
@@ -230,6 +241,23 @@
   <div class="cartBody" id="cartBody"></div>
 
   <div class="cartFoot">
+    <div class="promoRow" id="promoRow">
+      <input type="text" id="promoInput" placeholder="Promo code" autocomplete="off">
+      <button type="button" id="applyPromoBtn">Apply Code</button>
+    </div>
+    <div class="promoApplied hide" id="promoApplied" style="display:none;">
+      <span id="promoAppliedText"></span>
+      <button type="button" id="removePromoBtn" aria-label="Remove promo code">✕ Remove</button>
+    </div>
+    <div class="promoMsg" id="promoMsg"></div>
+    <div class="totals sub" id="subtotalRow" style="display:none;">
+      <span>Subtotal</span>
+      <span id="cartSubtotal">GHC 0</span>
+    </div>
+    <div class="totals disc" id="discountRow" style="display:none;">
+      <span id="discountLabel">Discount</span>
+      <span id="cartDiscount">− GHC 0</span>
+    </div>
     <div class="totals">
       <span>Total</span>
       <span id="cartTotal">GHC 0</span>
@@ -361,9 +389,49 @@ async function loadSections(){
   function cartTotal(){
     return Object.values(cart).reduce((sum,it)=> sum + (Number(it.unitPrice)||0) * (Number(it.qty)||0), 0);
   }
+
+  // PROMO CODE STATE
+  let appliedPromo = null; // { code, discountType, discountValue }
+
+  function promoDiscountAmount(){
+    if(!appliedPromo) return 0;
+    const subtotal = cartTotal();
+    let amt = 0;
+    if(appliedPromo.discountType === "percent"){
+      amt = subtotal * (Number(appliedPromo.discountValue) / 100);
+    }else{
+      amt = Number(appliedPromo.discountValue);
+    }
+    // Discount can never exceed the subtotal
+    return Math.min(Math.max(amt, 0), subtotal);
+  }
+  function cartFinalTotal(){
+    return cartTotal() - promoDiscountAmount();
+  }
+  function promoDescription(){
+    if(!appliedPromo) return "";
+    return appliedPromo.discountType === "percent"
+      ? `${appliedPromo.code} (−${Number(appliedPromo.discountValue)}%)`
+      : `${appliedPromo.code} (−GHC ${Number(appliedPromo.discountValue)})`;
+  }
+
   function setCartBadge(){
     document.getElementById("cartCount").textContent = cartCount();
-    document.getElementById("cartTotal").textContent = money(cartTotal());
+    document.getElementById("cartTotal").textContent = money(cartFinalTotal());
+
+    const subtotalRow = document.getElementById("subtotalRow");
+    const discountRow = document.getElementById("discountRow");
+
+    if(appliedPromo){
+      subtotalRow.style.display = "flex";
+      discountRow.style.display = "flex";
+      document.getElementById("cartSubtotal").textContent = money(cartTotal());
+      document.getElementById("discountLabel").textContent = `Discount (${appliedPromo.code})`;
+      document.getElementById("cartDiscount").textContent = `− ${money(promoDiscountAmount())}`;
+    }else{
+      subtotalRow.style.display = "none";
+      discountRow.style.display = "none";
+    }
   }
   function cartKeyFrom(productId,size){
     return `${productId}__${String(size||"").toLowerCase()}`;
@@ -382,7 +450,11 @@ async function loadSections(){
     saveCart(); renderCart(); setCartBadge();
   }
   function removeItem(key){ if(cart[key]){ delete cart[key]; saveCart(); renderCart(); setCartBadge(); } }
-  function clearCart(){ cart = {}; saveCart(); renderCart(); setCartBadge(); }
+  function clearCart(){
+    cart = {};
+    if(appliedPromo){ appliedPromo = null; renderPromoUI(); }
+    saveCart(); renderCart(); setCartBadge();
+  }
 
   // CART UI
   const cartOverlay = document.getElementById("cartOverlay");
@@ -407,6 +479,94 @@ async function loadSections(){
   closeCartBtn.addEventListener("click", closeCart);
   cartOverlay.addEventListener("click", closeCart);
   clearCartBtn.addEventListener("click", clearCart);
+
+  // PROMO CODE UI
+  const promoInput = document.getElementById("promoInput");
+  const applyPromoBtn = document.getElementById("applyPromoBtn");
+  const promoMsg = document.getElementById("promoMsg");
+  const promoRow = document.getElementById("promoRow");
+  const promoApplied = document.getElementById("promoApplied");
+  const promoAppliedText = document.getElementById("promoAppliedText");
+  const removePromoBtn = document.getElementById("removePromoBtn");
+
+  function showPromoMsg(text, ok){
+    promoMsg.textContent = text || "";
+    promoMsg.classList.remove("ok", "err");
+    if(text) promoMsg.classList.add(ok ? "ok" : "err");
+  }
+
+  function renderPromoUI(){
+    if(appliedPromo){
+      promoRow.style.display = "none";
+      promoApplied.style.display = "flex";
+      promoAppliedText.textContent = promoDescription();
+      showPromoMsg("", true);
+    }else{
+      promoRow.style.display = "flex";
+      promoApplied.style.display = "none";
+      promoAppliedText.textContent = "";
+    }
+  }
+
+  async function applyPromoCode(){
+    const code = promoInput.value.trim();
+    if(!code){
+      showPromoMsg("Enter a promo code first.", false);
+      return;
+    }
+    if(Object.keys(cart).length === 0){
+      showPromoMsg("Your cart is empty.", false);
+      return;
+    }
+
+    applyPromoBtn.disabled = true;
+    applyPromoBtn.textContent = "Checking...";
+
+    try{
+      const res = await fetch(API_BASE + "/api/promo-codes/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ code })
+      });
+      const data = await res.json().catch(()=> ({}));
+
+      if(!res.ok){
+        appliedPromo = null;
+        renderPromoUI();
+        setCartBadge();
+        showPromoMsg(data.error || "Invalid promo code.", false);
+        return;
+      }
+
+      appliedPromo = {
+        code: data.code,
+        discountType: data.discountType,
+        discountValue: Number(data.discountValue)
+      };
+      promoInput.value = "";
+      renderPromoUI();
+      setCartBadge();
+      showPromoMsg(`Promo applied: ${promoDescription()}`, true);
+      showToast("Promo applied");
+    }catch(err){
+      showPromoMsg("Could not validate code. Try again.", false);
+    }finally{
+      applyPromoBtn.disabled = false;
+      applyPromoBtn.textContent = "Apply Code";
+    }
+  }
+
+  applyPromoBtn.addEventListener("click", applyPromoCode);
+  promoInput.addEventListener("keydown", (e)=>{
+    if(e.key === "Enter"){ e.preventDefault(); applyPromoCode(); }
+  });
+  removePromoBtn.addEventListener("click", ()=>{
+    appliedPromo = null;
+    renderPromoUI();
+    setCartBadge();
+    showPromoMsg("", true);
+    showToast("Promo removed");
+  });
 
   function renderCart(){
     const items = Object.values(cart);
@@ -481,13 +641,22 @@ async function loadSections(){
       return `${idx+1}) ${it.name} | Size: ${it.size} | Qty: ${it.qty} | ${money(lineTotal)}`;
     }).join("\n");
 
+    let promoLines = "";
+    if(appliedPromo){
+      promoLines =
+`\nSubtotal: ${money(cartTotal())}
+Promo Code: ${appliedPromo.code} (${appliedPromo.discountType === "percent" ? Number(appliedPromo.discountValue) + "% off" : "GHC " + Number(appliedPromo.discountValue) + " off"})
+Discount: − ${money(promoDiscountAmount())}`;
+    }
+
     const msg =
 `Hello THE CLOSET 👋
 I want to order the following items:
 
 ${lines}
+${promoLines}
 
-Total: ${money(cartTotal())}
+Total: ${money(cartFinalTotal())}
 
 ${DELIVERY_TEXT}
 ${SCREENSHOT_TEXT}
