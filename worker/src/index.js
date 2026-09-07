@@ -99,6 +99,21 @@ async function initDB(env) {
         createdAt TEXT
       )
     `).run().catch(() => {});
+
+    await env.DB.prepare(`
+      CREATE TABLE IF NOT EXISTS promo_codes (
+        id TEXT PRIMARY KEY,
+        code TEXT NOT NULL UNIQUE,
+        discountType TEXT NOT NULL DEFAULT 'percent',
+        discountValue REAL NOT NULL DEFAULT 0,
+        maxUses INTEGER DEFAULT 0,
+        usedCount INTEGER DEFAULT 0,
+        expiryDate TEXT,
+        active INTEGER DEFAULT 1,
+        createdAt TEXT,
+        updatedAt TEXT
+      )
+    `).run().catch(() => {});
   }
 }
 
@@ -408,6 +423,232 @@ router.delete('/api/sections/:id', async (req, env) => {
     const { id } = req.params;
     await env.DB.prepare('DELETE FROM sections WHERE id = ?').bind(id).run();
     return json({ message: 'Section deleted' });
+  } catch (err) {
+    return json({ error: err.message }, 500);
+  }
+});
+
+// GET ALL PROMO CODES
+router.get('/api/promo-codes', async (req, env) => {
+  validateToken(req, env);
+
+  if (!env.DB) {
+    return json({ promoCodes: [] });
+  }
+
+  try {
+    const { results } = await env.DB.prepare(
+      'SELECT * FROM promo_codes ORDER BY createdAt DESC'
+    ).all();
+
+    const promoCodes = results.map(p => ({
+      id: p.id,
+      code: p.code,
+      discountType: p.discountType,
+      discountValue: p.discountValue,
+      maxUses: p.maxUses,
+      usedCount: p.usedCount,
+      expiryDate: p.expiryDate,
+      active: p.active === 1,
+      createdAt: p.createdAt,
+    }));
+
+    return json({ promoCodes });
+  } catch (err) {
+    return json({ error: err.message }, 500);
+  }
+});
+
+// CREATE PROMO CODE
+router.post('/api/promo-codes', async (req, env) => {
+  validateToken(req, env);
+
+  if (!env.DB) {
+    return json({ error: 'Database not configured' }, 500);
+  }
+
+  try {
+    const body = await parseJSON(req);
+    const { code, discountType, discountValue, maxUses, expiryDate, active } = body;
+
+    if (!code || !String(code).trim()) {
+      return json({ error: 'Code is required' }, 400);
+    }
+    if (!['percent', 'fixed'].includes(discountType)) {
+      return json({ error: 'discountType must be "percent" or "fixed"' }, 400);
+    }
+    const value = Number(discountValue);
+    if (!Number.isFinite(value) || value <= 0) {
+      return json({ error: 'discountValue must be a positive number' }, 400);
+    }
+    if (discountType === 'percent' && value > 100) {
+      return json({ error: 'Percent discount cannot exceed 100' }, 400);
+    }
+
+    const id = `promo_${Date.now()}_${Math.random().toString(36).substring(7)}`;
+    const now = new Date().toISOString();
+    const normalizedCode = String(code).trim().toUpperCase();
+    const maxUsesNum = Math.max(0, Math.floor(Number(maxUses) || 0));
+
+    await env.DB.prepare(
+      `INSERT INTO promo_codes (id, code, discountType, discountValue, maxUses, usedCount, expiryDate, active, createdAt, updatedAt)
+       VALUES (?, ?, ?, ?, ?, 0, ?, ?, ?, ?)`
+    ).bind(
+      id,
+      normalizedCode,
+      discountType,
+      value,
+      maxUsesNum,
+      expiryDate || null,
+      active === false ? 0 : 1,
+      now,
+      now
+    ).run();
+
+    return json({ id, message: 'Promo code created' }, 201);
+  } catch (err) {
+    if (err.message && err.message.includes('UNIQUE')) {
+      return json({ error: 'A promo code with this code already exists' }, 409);
+    }
+    return json({ error: err.message }, 500);
+  }
+});
+
+// UPDATE PROMO CODE
+router.put('/api/promo-codes/:id', async (req, env) => {
+  validateToken(req, env);
+
+  if (!env.DB) {
+    return json({ error: 'Database not configured' }, 500);
+  }
+
+  try {
+    const { id } = req.params;
+    const body = await parseJSON(req);
+    const { code, discountType, discountValue, maxUses, expiryDate, active } = body;
+    const now = new Date().toISOString();
+
+    const updates = [];
+    const values = [];
+
+    if (code !== undefined) {
+      if (!String(code).trim()) {
+        return json({ error: 'Code cannot be empty' }, 400);
+      }
+      updates.push('code = ?');
+      values.push(String(code).trim().toUpperCase());
+    }
+    if (discountType !== undefined) {
+      if (!['percent', 'fixed'].includes(discountType)) {
+        return json({ error: 'discountType must be "percent" or "fixed"' }, 400);
+      }
+      updates.push('discountType = ?');
+      values.push(discountType);
+    }
+    if (discountValue !== undefined) {
+      const value = Number(discountValue);
+      if (!Number.isFinite(value) || value <= 0) {
+        return json({ error: 'discountValue must be a positive number' }, 400);
+      }
+      updates.push('discountValue = ?');
+      values.push(value);
+    }
+    if (maxUses !== undefined) {
+      updates.push('maxUses = ?');
+      values.push(Math.max(0, Math.floor(Number(maxUses) || 0)));
+    }
+    if (expiryDate !== undefined) {
+      updates.push('expiryDate = ?');
+      values.push(expiryDate || null);
+    }
+    if (active !== undefined) {
+      updates.push('active = ?');
+      values.push(active ? 1 : 0);
+    }
+
+    if (updates.length === 0) {
+      return json({ error: 'No fields to update' }, 400);
+    }
+
+    updates.push('updatedAt = ?');
+    values.push(now);
+    values.push(id);
+
+    const query = `UPDATE promo_codes SET ${updates.join(', ')} WHERE id = ?`;
+    await env.DB.prepare(query).bind(...values).run();
+
+    return json({ message: 'Promo code updated' });
+  } catch (err) {
+    if (err.message && err.message.includes('UNIQUE')) {
+      return json({ error: 'A promo code with this code already exists' }, 409);
+    }
+    return json({ error: err.message }, 500);
+  }
+});
+
+// DELETE PROMO CODE
+router.delete('/api/promo-codes/:id', async (req, env) => {
+  validateToken(req, env);
+
+  if (!env.DB) {
+    return json({ error: 'Database not configured' }, 500);
+  }
+
+  try {
+    const { id } = req.params;
+    await env.DB.prepare('DELETE FROM promo_codes WHERE id = ?').bind(id).run();
+    return json({ message: 'Promo code deleted' });
+  } catch (err) {
+    return json({ error: err.message }, 500);
+  }
+});
+
+// VALIDATE PROMO CODE (public - used at checkout)
+router.post('/api/promo-codes/validate', async (req, env) => {
+  if (!env.DB) {
+    return json({ error: 'Database not configured' }, 500);
+  }
+
+  try {
+    const body = await parseJSON(req);
+    const { code } = body;
+
+    if (!code || !String(code).trim()) {
+      return json({ error: 'Code is required' }, 400);
+    }
+
+    const normalizedCode = String(code).trim().toUpperCase();
+
+    const { results } = await env.DB.prepare(
+      'SELECT * FROM promo_codes WHERE UPPER(code) = ?'
+    ).bind(normalizedCode).all();
+
+    const promo = results[0];
+
+    if (!promo) {
+      return json({ error: 'Invalid promo code' }, 404);
+    }
+    if (promo.active !== 1) {
+      return json({ error: 'This promo code is no longer active' }, 400);
+    }
+    if (promo.expiryDate) {
+      const expiry = new Date(promo.expiryDate);
+      // Codes remain valid through the end of the expiry day
+      expiry.setHours(23, 59, 59, 999);
+      if (expiry.getTime() < Date.now()) {
+        return json({ error: 'This promo code has expired' }, 400);
+      }
+    }
+    if (promo.maxUses > 0 && promo.usedCount >= promo.maxUses) {
+      return json({ error: 'This promo code has reached its usage limit' }, 400);
+    }
+
+    return json({
+      valid: true,
+      code: promo.code,
+      discountType: promo.discountType,
+      discountValue: promo.discountValue,
+    });
   } catch (err) {
     return json({ error: err.message }, 500);
   }
