@@ -111,48 +111,16 @@
     bottom:0;
   }
 
-  /* Drag and Drop Styles */
-  tbody tr.dragging{
-    opacity: 0.5;
-  }
-  tbody tr.drag-over{
-    background-color: #f0f0f0;
-    border-top: 2px solid var(--brand);
-  }
-  .drag-handle{
-    cursor: grab;
-    padding: 8px 6px;
-    font-size: 1rem;
-    user-select: none;
-    color: #999;
-    transition: color .2s;
-    display: inline-block;
-    min-width: 30px;
-    text-align: center;
-  }
-  .drag-handle:hover{
-    color: var(--brand);
-  }
-  .drag-handle:active{
-    cursor: grabbing;
-  }
-
-  /* Table wrapper for better mobile experience */
   .table-wrapper{
     overflow-x: auto;
     -webkit-overflow-scrolling: touch;
     border-radius: 12px;
   }
 
-  /* Sticky drag handle column */
-  tbody td:first-child{
-    position: sticky;
-    left: 0;
-    background: #fff;
-    z-index: 10;
-  }
-  tbody tr.drag-over td:first-child{
-    background: #f0f0f0;
+  input[type="number"].position-input{
+    width:70px;
+    padding:6px;
+    font-size:14px;
   }
 </style>
 </head>
@@ -329,13 +297,15 @@
     <div class="card">
       <h2 style="margin:0 0 10px;">Current Products</h2>
       <p class="tiny" id="apiHint" style="margin:0 0 10px;"></p>
-      <p class="tiny" style="margin:0 0 10px;color:#0b6b2a;font-weight:900;">💡 Grab the ⋮⋮ handle on the left to drag and reorder products. New order saves automatically.</p>
+      <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
+        <button type="button" id="toggleAllDiscountsBtn" class="btnSmall" style="width:auto;">Toggle All Discounts</button>
+      </div>
 
       <div class="table-wrapper">
         <table>
           <thead>
             <tr>
-              <th style="width:40px;">Drag</th>
+              <th>Position</th>
               <th>Preview</th>
               <th>Name</th>
               <th>Price</th>
@@ -363,9 +333,16 @@
     <div class="modalBody">
       <div class="row">
         <div>
+          <label>Position</label>
+          <input type="number" id="editPosition" min="0" step="1">
+        </div>
+        <div>
           <label>Name</label>
           <input type="text" id="editName">
         </div>
+      </div>
+
+      <div class="row">
         <div>
           <label>Price (GHC)</label>
           <input type="number" id="editPrice" min="1">
@@ -491,6 +468,7 @@
   const list = document.getElementById("list");
   const apiHint = document.getElementById("apiHint");
   const toastEl = document.getElementById("toast");
+  const toggleAllDiscountsBtn = document.getElementById("toggleAllDiscountsBtn");
 
   const imageFileEl = document.getElementById("imageFile");
   const previewImg = document.getElementById("previewImg");
@@ -502,6 +480,7 @@
   const saveEditBtn = document.getElementById("saveEdit");
   const deleteInEditBtn = document.getElementById("deleteInEdit");
 
+  const editPosition = document.getElementById("editPosition");
   const editName = document.getElementById("editName");
   const editPrice = document.getElementById("editPrice");
   const editSizes = document.getElementById("editSizes");
@@ -1013,8 +992,8 @@
         : "";
 
       return `
-        <tr data-id="${escapeHtml(p.id)}" data-index="${idx}" draggable="true">
-          <td><span class="drag-handle">⋮⋮</span></td>
+        <tr data-id="${escapeHtml(p.id)}">
+          <td>${escapeHtml(String(p.position ?? idx))}</td>
           <td>${img}</td>
           <td>${escapeHtml(p.name || "")}</td>
           <td>GHC ${escapeHtml(String(p.price ?? ""))}</td>
@@ -1029,114 +1008,36 @@
         </tr>
       `;
     }).join("");
-
-    setupDragAndDrop();
   }
 
-  // ---------- DRAG AND DROP ----------
-  let draggedRow = null;
+  // ---------- TOGGLE ALL DISCOUNTS ----------
+  toggleAllDiscountsBtn.addEventListener("click", async ()=>{
+    if(!productsCache.length) { alert("No products to toggle."); return; }
 
-  function setupDragAndDrop(){
-    const rows = list.querySelectorAll("tr[draggable='true']");
+    const hasAnyDiscount = productsCache.some(p => p.discountEnabled);
+    const newState = !hasAnyDiscount;
 
-    rows.forEach(row => {
-      row.addEventListener("dragstart", (e) => {
-        draggedRow = row;
-        row.classList.add("dragging");
-        e.dataTransfer.effectAllowed = "move";
-      });
+    toggleAllDiscountsBtn.disabled = true;
+    toggleAllDiscountsBtn.textContent = "Updating...";
 
-      row.addEventListener("dragend", (e) => {
-        row.classList.remove("dragging");
-        rows.forEach(r => r.classList.remove("drag-over"));
-        draggedRow = null;
-      });
-
-      row.addEventListener("dragover", (e) => {
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "move";
-        if(row !== draggedRow) row.classList.add("drag-over");
-      });
-
-      row.addEventListener("dragleave", (e) => {
-        row.classList.remove("drag-over");
-      });
-
-      row.addEventListener("drop", async (e) => {
-        e.preventDefault();
-        row.classList.remove("drag-over");
-
-        if(draggedRow && draggedRow !== row){
-          const parent = row.parentNode;
-          const allRows = Array.from(parent.querySelectorAll("tr[data-index]"));
-          const draggedIndex = allRows.indexOf(draggedRow);
-          const targetIndex = allRows.indexOf(row);
-
-          if(draggedIndex < targetIndex){
-            row.parentNode.insertBefore(draggedRow, row.nextSibling);
-          }else{
-            row.parentNode.insertBefore(draggedRow, row);
-          }
-
-          await saveProductOrder();
-        }
-      });
-    });
-  }
-
-  async function saveProductOrder(){
     try{
-      const rows = list.querySelectorAll("tr[data-id]");
-      const order = Array.from(rows).map(row => row.dataset.id);
-
-      await api("/api/products/reorder", {
-        method: "POST",
-        headers: authedHeaders(),
-        body: JSON.stringify({ order })
-      });
-
-      showToast("Order saved");
-    }catch(err){
-      alert("❌ Failed to save order: " + (err.message || "Try again"));
+      await Promise.all(
+        productsCache.map(p =>
+          api("/api/products/" + encodeURIComponent(p.id), {
+            method:"PUT",
+            headers: authedHeaders(),
+            body: JSON.stringify({ discountEnabled: newState })
+          })
+        )
+      );
+      showToast(newState ? "All discounts enabled" : "All discounts disabled");
       await refreshList();
+    }catch(err){
+      alert("❌ Failed to toggle discounts: " + (err.message || "Try again"));
+    }finally{
+      toggleAllDiscountsBtn.disabled = false;
+      toggleAllDiscountsBtn.textContent = "Toggle All Discounts";
     }
-  }
-
-  // ---------- EDIT MODAL OPEN/CLOSE ----------
-  let editingId = null;
-
-  function openEditModal(product){
-    editingId = product.id;
-
-    editName.value = product.name || "";
-    editPrice.value = Number(product.price || 0);
-    editSizes.value = Array.isArray(product.sizes) ? product.sizes.join(",") : "";
-    editSectionSelect.innerHTML = sectionSelect.innerHTML;
-    editSectionSelect.value = product.section || "";
-    editDiscountEnabled.checked = !!product.discountEnabled;
-    editDiscountPercent.value = Number(product.discountPercent || 0);
-    editOutOfStock.checked = !!product.outOfStock;
-
-    editImageFileEl.value = "";
-    editPreviewImg.style.display = "none";
-    editFileMeta.textContent = "No new file";
-
-    editOverlay.classList.add("show");
-    editOverlay.setAttribute("aria-hidden","false");
-  }
-
-  function closeEditModal(){
-    editingId = null;
-    editOverlay.classList.remove("show");
-    editOverlay.setAttribute("aria-hidden","true");
-  }
-
-  closeEditBtn.addEventListener("click", closeEditModal);
-  editOverlay.addEventListener("click", (e)=>{
-    if(e.target === editOverlay) closeEditModal();
-  });
-  document.addEventListener("keydown", (e)=>{
-    if(e.key === "Escape" && editOverlay.classList.contains("show")) closeEditModal();
   });
 
   // ---------- TABLE ACTIONS ----------
@@ -1205,6 +1106,44 @@
     }
   });
 
+  // ---------- EDIT MODAL OPEN/CLOSE ----------
+  let editingId = null;
+
+  function openEditModal(product){
+    editingId = product.id;
+
+    editPosition.value = Number(product.position || 0);
+    editName.value = product.name || "";
+    editPrice.value = Number(product.price || 0);
+    editSizes.value = Array.isArray(product.sizes) ? product.sizes.join(",") : "";
+    editSectionSelect.innerHTML = sectionSelect.innerHTML;
+    editSectionSelect.value = product.section || "";
+    editDiscountEnabled.checked = !!product.discountEnabled;
+    editDiscountPercent.value = Number(product.discountPercent || 0);
+    editOutOfStock.checked = !!product.outOfStock;
+
+    editImageFileEl.value = "";
+    editPreviewImg.style.display = "none";
+    editFileMeta.textContent = "No new file";
+
+    editOverlay.classList.add("show");
+    editOverlay.setAttribute("aria-hidden","false");
+  }
+
+  function closeEditModal(){
+    editingId = null;
+    editOverlay.classList.remove("show");
+    editOverlay.setAttribute("aria-hidden","true");
+  }
+
+  closeEditBtn.addEventListener("click", closeEditModal);
+  editOverlay.addEventListener("click", (e)=>{
+    if(e.target === editOverlay) closeEditModal();
+  });
+  document.addEventListener("keydown", (e)=>{
+    if(e.key === "Escape" && editOverlay.classList.contains("show")) closeEditModal();
+  });
+
   // ---------- SAVE EDIT ----------
   saveEditBtn.addEventListener("click", async ()=>{
     if(!editingId) return;
@@ -1213,6 +1152,7 @@
     saveEditBtn.textContent = "Saving...";
 
     try{
+      const nextPosition = Math.max(0, Math.floor(Number(editPosition.value || 0)));
       const nextName = editName.value.trim();
       const nextPrice = Number(editPrice.value || 0);
       const nextSizes = editSizes.value.split(",").map(s=>s.trim()).filter(Boolean);
@@ -1238,6 +1178,7 @@
         name: nextName,
         price: nextPrice,
         sizes: nextSizes,
+        position: nextPosition,
         discountEnabled: nextDiscountEnabled,
         discountPercent: nextDiscountPercent,
         outOfStock: nextOutOfStock,
