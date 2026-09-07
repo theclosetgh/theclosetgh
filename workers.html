@@ -117,10 +117,32 @@
     border-radius: 12px;
   }
 
-  input[type="number"].position-input{
-    width:70px;
-    padding:6px;
+  /* Inline position cell */
+  .position-cell{
+    padding:0 !important;
+  }
+  .position-input{
+    width:50px;
+    padding:8px;
+    border:2px solid #ddd;
+    border-radius:6px;
     font-size:14px;
+    font-weight:900;
+    text-align:center;
+    cursor:pointer;
+  }
+  .position-input:hover{
+    border-color:var(--brand);
+    background:#f9f9f9;
+  }
+  .position-input:focus{
+    outline:none;
+    border-color:var(--brand);
+    box-shadow:0 0 0 2px rgba(0,0,0,.1);
+  }
+  .position-input.saving{
+    opacity:0.6;
+    cursor:not-allowed;
   }
 </style>
 </head>
@@ -297,6 +319,7 @@
     <div class="card">
       <h2 style="margin:0 0 10px;">Current Products</h2>
       <p class="tiny" id="apiHint" style="margin:0 0 10px;"></p>
+      <p class="tiny" style="margin:0 0 10px;color:#0b6b2a;font-weight:900;">💡 Click the Position number to edit it directly. Saves automatically!</p>
       <div style="display:flex;gap:10px;margin-bottom:10px;flex-wrap:wrap;">
         <button type="button" id="toggleAllDiscountsBtn" class="btnSmall" style="width:auto;">Toggle All Discounts</button>
       </div>
@@ -333,16 +356,9 @@
     <div class="modalBody">
       <div class="row">
         <div>
-          <label>Position</label>
-          <input type="number" id="editPosition" min="0" step="1">
-        </div>
-        <div>
           <label>Name</label>
           <input type="text" id="editName">
         </div>
-      </div>
-
-      <div class="row">
         <div>
           <label>Price (GHC)</label>
           <input type="number" id="editPrice" min="1">
@@ -480,7 +496,6 @@
   const saveEditBtn = document.getElementById("saveEdit");
   const deleteInEditBtn = document.getElementById("deleteInEdit");
 
-  const editPosition = document.getElementById("editPosition");
   const editName = document.getElementById("editName");
   const editPrice = document.getElementById("editPrice");
   const editSizes = document.getElementById("editSizes");
@@ -990,10 +1005,21 @@
       const img = p.imageUrl
         ? `<img src="${escapeHtml(p.imageUrl)}" style="width:40px;height:40px;object-fit:cover;border-radius:8px;border:1px solid rgba(0,0,0,.06)">`
         : "";
+      const pos = String(p.position ?? idx);
 
       return `
         <tr data-id="${escapeHtml(p.id)}">
-          <td>${escapeHtml(String(p.position ?? idx))}</td>
+          <td class="position-cell">
+            <input 
+              type="number" 
+              class="position-input" 
+              value="${pos}" 
+              min="0" 
+              step="1"
+              data-product-id="${escapeHtml(p.id)}"
+              data-original-pos="${pos}"
+            >
+          </td>
           <td>${img}</td>
           <td>${escapeHtml(p.name || "")}</td>
           <td>GHC ${escapeHtml(String(p.price ?? ""))}</td>
@@ -1008,6 +1034,50 @@
         </tr>
       `;
     }).join("");
+
+    // Attach inline position save handlers
+    document.querySelectorAll(".position-input").forEach(inp => {
+      inp.addEventListener("blur", savePositionInline);
+      inp.addEventListener("keypress", (e) => {
+        if(e.key === "Enter") savePositionInline.call(inp);
+      });
+    });
+  }
+
+  // ---------- SAVE POSITION INLINE ----------
+  async function savePositionInline(){
+    const inp = this;
+    const productId = inp.dataset.productId;
+    const newPos = Math.max(0, Math.floor(Number(inp.value || 0)));
+    const origPos = inp.dataset.originalPos;
+
+    if(String(newPos) === String(origPos)){
+      return; // No change
+    }
+
+    inp.classList.add("saving");
+    inp.disabled = true;
+
+    try{
+      await api("/api/products/" + encodeURIComponent(productId), {
+        method:"PUT",
+        headers: authedHeaders(),
+        body: JSON.stringify({ position: newPos })
+      });
+      inp.dataset.originalPos = newPos;
+      showToast("Position saved");
+    }catch(err){
+      alert("❌ Failed to save position: " + (err.message || "Try again"));
+      inp.value = origPos; // Revert on error
+      const msg = String(err.message || "").toLowerCase();
+      if(msg.includes("unauthorized") || msg.includes("401")){
+        clearToken();
+        setLoggedInUI(false);
+      }
+    }finally{
+      inp.classList.remove("saving");
+      inp.disabled = false;
+    }
   }
 
   // ---------- TOGGLE ALL DISCOUNTS ----------
@@ -1112,7 +1182,6 @@
   function openEditModal(product){
     editingId = product.id;
 
-    editPosition.value = Number(product.position || 0);
     editName.value = product.name || "";
     editPrice.value = Number(product.price || 0);
     editSizes.value = Array.isArray(product.sizes) ? product.sizes.join(",") : "";
@@ -1152,7 +1221,6 @@
     saveEditBtn.textContent = "Saving...";
 
     try{
-      const nextPosition = Math.max(0, Math.floor(Number(editPosition.value || 0)));
       const nextName = editName.value.trim();
       const nextPrice = Number(editPrice.value || 0);
       const nextSizes = editSizes.value.split(",").map(s=>s.trim()).filter(Boolean);
@@ -1178,7 +1246,6 @@
         name: nextName,
         price: nextPrice,
         sizes: nextSizes,
-        position: nextPosition,
         discountEnabled: nextDiscountEnabled,
         discountPercent: nextDiscountPercent,
         outOfStock: nextOutOfStock,
