@@ -2,6 +2,28 @@ export default {
   async fetch(request, env) {
     const url = new URL(request.url);
 
+    // ================= INITIALIZE DATABASE =================
+    async function initDB() {
+      try {
+        await env.DB.prepare(`
+          CREATE TABLE IF NOT EXISTS promo_codes (
+            id TEXT PRIMARY KEY,
+            code TEXT NOT NULL UNIQUE,
+            discountType TEXT NOT NULL DEFAULT 'percent',
+            discountValue REAL NOT NULL DEFAULT 0,
+            maxUses INTEGER DEFAULT 0,
+            usedCount INTEGER DEFAULT 0,
+            expiryDate TEXT,
+            active INTEGER DEFAULT 1,
+            createdAt TEXT,
+            updatedAt TEXT
+          )
+        `).run();
+      } catch (e) {
+        // Table might already exist, ignore error
+      }
+    }
+
     // ================= CORS =================
     const corsHeaders = {
       "Access-Control-Allow-Origin": "*",
@@ -78,6 +100,9 @@ export default {
     async function requireAuth(req) {
       return await verifyToken(getBearerToken(req));
     }
+
+    // Initialize DB on every request
+    await initDB();
 
     // ================= ROUTES =================
 
