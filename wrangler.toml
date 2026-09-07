@@ -6,6 +6,9 @@ compatibility_flags = ["nodejs_compat"]
 [env.production]
 name = "the-closet-api"
 route = "https://the-closet-api.edriatebi2.workers.dev/*"
+d1_databases = [
+  { binding = "DB", database_name = "thecloset_db", preview_id = "thecloset_db_preview" }
+]
 
 [build]
 command = "npm install"
